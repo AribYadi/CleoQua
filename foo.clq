@@ -1,7 +1,6 @@
 if 0 do
   'a' putc
-end
-if 1 do
+else
   'b' putc
 end
 

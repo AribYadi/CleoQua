@@ -20,6 +20,7 @@ enum TokenType {
 
   If,
   Do,
+  Else,
   End,
 }
 
@@ -96,6 +97,7 @@ fn lex(s: &str) -> Vec<Token> {
 
         "if" => TokenType::If,
         "do" => TokenType::Do,
+        "else" => TokenType::Else,
         "end" => TokenType::End,
 
         _ => todo!("Report an error."),
@@ -206,7 +208,21 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  // <-- do -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
         s.push_str("  cmp x0, 1\n");
-        s.push_str(&format!("  b.ne end_{block_total}\n"));
+        s.push_str(&format!("  b.ne jmp_{block_total}\n"));
+      },
+      TokenType::Else => {
+        s.push_str("  // <-- else -->\n");
+        // Jump to end if else was reached
+        s.push_str(&format!("  b jmp_{}\n", block_total + 1));
+
+        // Otherwise we jump to this label if `if`'s condition was falsy
+        match block_stack.pop() {
+          Some(TokenType::If) => s.push_str(&format!("jmp_{block_total}:\n")),
+          _ => todo!("Report an error."),
+        }
+
+        block_stack.push(TokenType::Else);
+        block_total += 1;
       },
       TokenType::End => {
         s.push_str("  // <-- end -->\n");
@@ -217,13 +233,13 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         };
 
         match block_type {
-          // End for if's doesn't really do anything special
-          TokenType::If => (),
+          // End for if's and else's doesn't really do anything special
+          TokenType::If | TokenType::Else => (),
 
           _ => todo!("Report an error."),
         }
 
-        s.push_str(&format!("end_{block_total}:\n"));
+        s.push_str(&format!("jmp_{block_total}:\n"));
       },
     }
   }
