@@ -1,12 +1,16 @@
-use std::io::{
-  self,
-  Write,
+use std::{
+  fs::File,
+  io::{
+    Read,
+    Write,
+  },
 };
 
 #[derive(Debug)]
 enum TokenType {
   Int,
   Plus,
+  PutD,
 }
 
 #[derive(Debug)]
@@ -21,7 +25,7 @@ struct Token {
 fn lex(s: &str) -> Vec<Token> {
   fn is_int(s: &str) -> bool {
     for ch in s.chars() {
-      if let '0'..='9' | '_' = ch {
+      if let '0'..='9' = ch {
       } else {
         return false;
       }
@@ -49,6 +53,7 @@ fn lex(s: &str) -> Vec<Token> {
       let type_ = match lexeme.as_str() {
         "" => continue,
         "+" => TokenType::Plus,
+        "putd" => TokenType::PutD,
         _ if is_int(&lexeme) => TokenType::Int,
         _ => todo!("Report an error."),
       };
@@ -69,17 +74,85 @@ fn lex(s: &str) -> Vec<Token> {
   tokens
 }
 
-fn main() {
-  let mut stdout = io::stdout();
-  let stdin = io::stdin();
+fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
+  let mut s = String::new();
 
-  loop {
-    print!("-> ");
-    let _ = stdout.flush();
+  s.push_str(".text\n");
 
-    let mut buf = String::new();
-    let _ = stdin.read_line(&mut buf);
+  s.push_str("putd:\n");
+  s.push_str("  stp x29, x30, [x28, -48]!\n");
+  s.push_str("  mov x7, -3689348814741910324\n");
+  s.push_str("  mov x2, 0\n");
+  s.push_str("  add x1, x28, 16\n");
+  s.push_str("  movk x7, 0xcccd, lsl 0\n");
+  s.push_str("  mov x29, x28\n");
+  s.push_str(".L2:\n");
+  s.push_str("  umulh x4, x0, x7\n");
+  s.push_str("  sub x5, x1, x2\n");
+  s.push_str("  mov x6, x0\n");
+  s.push_str("  add x2, x2, 1\n");
+  s.push_str("  lsr x4, x4, 3\n");
+  s.push_str("  add x3, x4, x4, lsl 2\n");
+  s.push_str("  sub x3, x0, x3, lsl 1\n");
+  s.push_str("  mov x0, x4\n");
+  s.push_str("  add w3, w3, 48\n");
+  s.push_str("  strb w3, [x5, 31]\n");
+  s.push_str("  cmp x6, 9\n");
+  s.push_str("  bhi .L2\n");
+  s.push_str("  sub x1, x1, x2\n");
+  s.push_str("  mov w0, 1\n");
+  s.push_str("  add x1, x1, 32\n");
+  s.push_str("  mov x8, 0x40\n");
+  s.push_str("  svc 0\n");
+  s.push_str("  ldp x29, x30, [x28], 48\n");
+  s.push_str("  ret\n");
+  s.push_str("\n");
 
-    println!(" => {:?}", lex(buf.trim()));
+  s.push_str(".global _start\n");
+  s.push_str("_start:\n");
+
+  s.push_str("  mov x28, sp\n");
+
+  for token in tokens {
+    match token.type_ {
+      TokenType::Int => {
+        s.push_str("  // <-- int -->\n");
+        s.push_str(&format!("  mov x0, {}\n", token.lexeme));
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::Plus => {
+        s.push_str("  // <-- plus -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  ldr x1, [x28], #8\n");
+        s.push_str("  add x0, x0, x1\n");
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::PutD => {
+        s.push_str("  // <-- putd -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  bl putd\n");
+      },
+    }
   }
+
+  s.push_str("  // <-- putd -->\n");
+  s.push_str("  mov x8, 0x5D\n");
+  s.push_str("  mov x0, 0\n");
+  s.push_str("  svc 0\n");
+
+  s
+}
+
+fn main() {
+  let mut file_contents = String::new();
+  let _ = File::open("./foo.clq")
+    .unwrap()
+    .read_to_string(&mut file_contents);
+
+  let tokens = lex(&file_contents);
+  let asm = compile_to_arm64_asm(tokens);
+
+  let _ = File::create("./foo.S").unwrap().write_all(asm.as_bytes());
 }
