@@ -1,9 +1,11 @@
 use std::{
+  env,
   fs::File,
   io::{
     Read,
     Write,
   },
+  process,
 };
 
 #[derive(Debug)]
@@ -174,7 +176,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
     }
   }
 
-  s.push_str("  // <-- putd -->\n");
+  s.push_str("  // <-- eixt -->\n");
   s.push_str("  mov x8, 0x5D\n");
   s.push_str("  mov x0, 0\n");
   s.push_str("  svc 0\n");
@@ -182,14 +184,65 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   s
 }
 
+fn usage() {
+  println!("[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq");
+  println!("[INFO]: OPTIONS:");
+  println!("[INFO]:   --help, -h: Prints this help message.");
+}
+
 fn main() {
+  let mut file = None;
+  for arg in env::args().skip(1) {
+    if &arg[0..1] == "-" {
+      let mut arg = &arg[1..];
+      if &arg[0..1] == "-" {
+        arg = &arg[1..];
+      }
+
+      match arg {
+        "help" | "h" => {
+          usage();
+          process::exit(0);
+        },
+        _ => {
+          usage();
+          eprintln!("[ERR]: Unknown option `{arg}`");
+          process::exit(1);
+        },
+      }
+    } else if file.is_none() {
+      if &arg[arg.len() - 4..] != ".clq" {
+        eprintln!("[ERR]: Expected given file-path to end with `.clq`");
+        process::exit(1);
+      }
+      file = Some(arg);
+    } else {
+      eprintln!("[WARN]: Unused command-line argument `{arg}`");
+    }
+  }
+
+  let file = match file {
+    Some(file) => file,
+    None => {
+      usage();
+      eprintln!("[ERR]: Expected file-path");
+      process::exit(1);
+    },
+  };
+
   let mut file_contents = String::new();
-  let _ = File::open("./foo.clq")
-    .unwrap()
-    .read_to_string(&mut file_contents);
+  let _ = match File::open(&file) {
+    Ok(mut f) => f.read_to_string(&mut file_contents),
+    Err(_) => {
+      eprintln!("[ERR]: Cannot read file `{file}`");
+      process::exit(1);
+    },
+  };
 
   let tokens = lex(&file_contents);
   let asm = compile_to_arm64_asm(tokens);
 
-  let _ = File::create("./foo.S").unwrap().write_all(asm.as_bytes());
+  let mut asm_path = file[..file.len() - 4].to_string();
+  asm_path.push_str(".S");
+  let _ = File::create(asm_path).unwrap().write_all(asm.as_bytes());
 }
