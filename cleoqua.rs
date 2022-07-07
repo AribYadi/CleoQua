@@ -9,6 +9,7 @@ use std::{
 #[derive(Debug)]
 enum TokenType {
   Int,
+  Char,
   Plus,
   PutD,
 }
@@ -45,6 +46,25 @@ fn lex(s: &str) -> Vec<Token> {
       while let Some(ch) = chars.next() {
         match ch {
           ' ' => break,
+          '\'' if lexeme == "" => {
+            lexeme.push('\'');
+            row += 1;
+
+            match chars.next() {
+              Some('\'') => todo!("Report an error."),
+              Some(ch) => lexeme.push(ch),
+              None => todo!("Report an error."),
+            }
+            row += 1;
+
+            match chars.next() {
+              Some('\'') => lexeme.push('\''),
+              _ => todo!("Report an error."),
+            }
+            row += 1;
+
+            break;
+          },
           _ => lexeme.push(ch),
         }
         row += 1;
@@ -55,6 +75,7 @@ fn lex(s: &str) -> Vec<Token> {
         "+" => TokenType::Plus,
         "putd" => TokenType::PutD,
         _ if is_int(&lexeme) => TokenType::Int,
+        _ if lexeme.len() == 3 && &lexeme[0..1] == "'" && &lexeme[2..3] == "'" => TokenType::Char,
         _ => todo!("Report an error."),
       };
 
@@ -118,6 +139,12 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       TokenType::Int => {
         s.push_str("  // <-- int -->\n");
         s.push_str(&format!("  mov x0, {}\n", token.lexeme));
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::Char => {
+        s.push_str("  // <-- char -->\n");
+        s.push_str(&format!("  mov x0, {}\n", token.lexeme.as_bytes()[1]));
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
