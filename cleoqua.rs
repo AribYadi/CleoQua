@@ -201,8 +201,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
       TokenType::If => {
         s.push_str("  // <-- if -->\n");
+
+        // To allow `else if` we jump to the same jump dest of `else`
+        if let Some(TokenType::Else) = block_stack.last() {
+        } else {
+          block_total += 1;
+        }
+
         block_stack.push(TokenType::If);
-        block_total += 1;
       },
       TokenType::Do => {
         s.push_str("  // <-- do -->\n");
