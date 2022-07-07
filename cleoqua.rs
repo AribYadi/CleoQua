@@ -12,6 +12,7 @@ enum TokenType {
   Char,
   Plus,
   PutD,
+  PutC,
 }
 
 #[derive(Debug)]
@@ -74,6 +75,7 @@ fn lex(s: &str) -> Vec<Token> {
         "" => continue,
         "+" => TokenType::Plus,
         "putd" => TokenType::PutD,
+        "putc" => TokenType::PutC,
         _ if is_int(&lexeme) => TokenType::Int,
         _ if lexeme.len() == 3 && &lexeme[0..1] == "'" && &lexeme[2..3] == "'" => TokenType::Char,
         _ => todo!("Report an error."),
@@ -160,6 +162,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  // <-- putd -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
         s.push_str("  bl putd\n");
+      },
+      TokenType::PutC => {
+        s.push_str("  // <-- putc -->\n");
+        s.push_str("  mov x8, 0x40\n");
+        s.push_str("  mov x0, #1\n");
+        s.push_str("  mov x1, x28\n");
+        s.push_str("  mov x2, #1\n");
+        s.push_str("  svc 0\n");
       },
     }
   }
