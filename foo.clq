@@ -1,15 +1,7 @@
-'H' putc
-'e' putc
-'l' putc
-'l' putc
-'o' putc
-',' putc
-' ' putc
-'W' putc
-'o' putc
-'r' putc
-'l' putc
-'d' putc
-'!' putc
-10 putc
+if 0 do
+  'a' putc
+end
+if 1 do
+  'b' putc
+end
 

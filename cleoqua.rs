@@ -12,9 +12,15 @@ use std::{
 enum TokenType {
   Int,
   Char,
+
   Plus,
+
   PutD,
   PutC,
+
+  If,
+  Do,
+  End,
 }
 
 #[derive(Debug)]
@@ -48,7 +54,9 @@ fn lex(s: &str) -> Vec<Token> {
 
       while let Some(ch) = chars.next() {
         match ch {
-          ' ' => break,
+          ' ' | '\t' => {
+            break;
+          },
           '\'' if lexeme == "" => {
             lexeme.push('\'');
             row += 1;
@@ -74,12 +82,22 @@ fn lex(s: &str) -> Vec<Token> {
       }
 
       let type_ = match lexeme.as_str() {
-        "" => continue,
-        "+" => TokenType::Plus,
-        "putd" => TokenType::PutD,
-        "putc" => TokenType::PutC,
+        "" => {
+          row += 1;
+          continue;
+        },
         _ if is_int(&lexeme) => TokenType::Int,
         _ if lexeme.len() == 3 && &lexeme[0..1] == "'" && &lexeme[2..3] == "'" => TokenType::Char,
+
+        "+" => TokenType::Plus,
+
+        "putd" => TokenType::PutD,
+        "putc" => TokenType::PutC,
+
+        "if" => TokenType::If,
+        "do" => TokenType::Do,
+        "end" => TokenType::End,
+
         _ => todo!("Report an error."),
       };
 
@@ -101,6 +119,9 @@ fn lex(s: &str) -> Vec<Token> {
 
 fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
+
+  let mut block_stack = Vec::new();
+  let mut block_total = 0;
 
   s.push_str(".text\n");
 
@@ -152,6 +173,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
+
       TokenType::Plus => {
         s.push_str("  // <-- plus -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
@@ -160,6 +182,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
+
       TokenType::PutD => {
         s.push_str("  // <-- putd -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
@@ -173,10 +196,39 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  mov x2, #1\n");
         s.push_str("  svc 0\n");
       },
+
+      TokenType::If => {
+        s.push_str("  // <-- if -->\n");
+        block_stack.push(TokenType::If);
+        block_total += 1;
+      },
+      TokenType::Do => {
+        s.push_str("  // <-- do -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  cmp x0, 1\n");
+        s.push_str(&format!("  b.ne end_{block_total}\n"));
+      },
+      TokenType::End => {
+        s.push_str("  // <-- end -->\n");
+
+        let block_type = match block_stack.pop() {
+          Some(b) => b,
+          None => todo!("Report an error."),
+        };
+
+        match block_type {
+          // End for if's doesn't really do anything special
+          TokenType::If => (),
+
+          _ => todo!("Report an error."),
+        }
+
+        s.push_str(&format!("end_{block_total}:\n"));
+      },
     }
   }
 
-  s.push_str("  // <-- eixt -->\n");
+  s.push_str("  // <-- exit -->\n");
   s.push_str("  mov x8, 0x5D\n");
   s.push_str("  mov x0, 0\n");
   s.push_str("  svc 0\n");
