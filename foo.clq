@@ -1,13 +1,1 @@
-if 0 do
-  'a' putc
-else if 0 do
-  'b' putc
-else if 0 do
-  'c' putc
-else if 1 do
-  'd' putc
-else
-  'e' putc
-end
-10 putc
 

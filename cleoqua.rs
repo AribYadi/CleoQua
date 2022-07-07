@@ -46,11 +46,11 @@ fn lex(s: &str) -> Vec<Token> {
 
   let mut tokens = Vec::new();
 
-  for (col, line) in s.split('\n').enumerate() {
+  for (row, line) in s.split('\n').enumerate() {
     let mut chars = line.chars();
 
-    let mut row = 0;
-    while row < line.len() {
+    let mut col = 0;
+    while col < line.len() {
       let mut lexeme = String::new();
 
       while let Some(ch) = chars.next() {
@@ -60,31 +60,31 @@ fn lex(s: &str) -> Vec<Token> {
           },
           '\'' if lexeme == "" => {
             lexeme.push('\'');
-            row += 1;
+            col += 1;
 
             match chars.next() {
               Some('\'') => todo!("Report an error."),
               Some(ch) => lexeme.push(ch),
               None => todo!("Report an error."),
             }
-            row += 1;
+            col += 1;
 
             match chars.next() {
               Some('\'') => lexeme.push('\''),
               _ => todo!("Report an error."),
             }
-            row += 1;
+            col += 1;
 
             break;
           },
           _ => lexeme.push(ch),
         }
-        row += 1;
+        col += 1;
       }
 
       let type_ = match lexeme.as_str() {
         "" => {
-          row += 1;
+          col += 1;
           continue;
         },
         _ if is_int(&lexeme) => TokenType::Int,
@@ -103,16 +103,16 @@ fn lex(s: &str) -> Vec<Token> {
         _ => todo!("Report an error."),
       };
 
-      let start = row - lexeme.len();
+      let start = col - lexeme.len();
       tokens.push(Token {
         type_,
         lexeme,
 
-        row: start,
-        col,
+        row,
+        col: start,
       });
 
-      row += 1;
+      col += 1;
     }
   }
 
