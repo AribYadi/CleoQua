@@ -16,6 +16,8 @@ enum TokenType {
   Plus,
   LessThan,
 
+  Dup,
+
   PutD,
   PutC,
 
@@ -93,6 +95,8 @@ fn lex(s: &str) -> Vec<Token> {
 
         "+" => TokenType::Plus,
         "<" => TokenType::LessThan,
+
+        "_" => TokenType::Dup,
 
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
@@ -193,6 +197,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  cmp x0, x1\n");
         s.push_str("  cset x0, lt\n");
         s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+
+      TokenType::Dup => {
+        s.push_str("  // <-- dup -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  sub sp, x28, #16\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
 
