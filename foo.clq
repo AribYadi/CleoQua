@@ -1,17 +1,3 @@
-"Hello, world" putd
-10 putc
-_ 0  + v putc
-_ 1  + v putc
-_ 2  + v putc
-_ 3  + v putc
-_ 4  + v putc
-_ 5  + v putc
-_ 6  + v putc
-_ 7  + v putc
-_ 8  + v putc
-_ 9  + v putc
-_ 10 + v putc
-_ 11 + v putc
-_ 12 + v putc
+64 1 "Hello, world" syscall3
 10 putc
 

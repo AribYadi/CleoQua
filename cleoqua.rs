@@ -21,6 +21,7 @@ enum TokenType {
   Mem,
   Load,
   Store,
+  Syscall,
 
   PutD,
   PutC,
@@ -123,6 +124,8 @@ fn lex(s: &str) -> Vec<Token> {
         "mem" => TokenType::Mem,
         "v" => TokenType::Load,
         "^" => TokenType::Store,
+        "syscall0" | "syscall1" | "syscall2" | "syscall3" | "syscall4" | "syscall5"
+        | "syscall6" => TokenType::Syscall,
 
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
@@ -273,6 +276,18 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  ldr x0, [x28], #8\n");
         s.push_str("  ldr x1, [x28], #8\n");
         s.push_str("  str x0, [x1]\n");
+      },
+      TokenType::Syscall => {
+        s.push_str("  // <-- syscall -->\n");
+
+        let syscall_argc: usize = token.lexeme[token.lexeme.len() - 1..].parse().unwrap();
+
+        for i in (0..syscall_argc).rev() {
+          s.push_str(&format!("  ldr x{i}, [x28], #8\n"));
+        }
+
+        s.push_str("  ldr x8, [x28], #8\n");
+        s.push_str("  svc 0\n");
       },
 
       TokenType::PutD => {
