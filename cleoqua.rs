@@ -18,6 +18,8 @@ enum TokenType {
 
   Dup,
   Mem,
+  Load,
+  Store,
 
   PutD,
   PutC,
@@ -78,9 +80,6 @@ fn lex(s: &str) -> Vec<Token> {
               Some('\'') => lexeme.push('\''),
               _ => todo!("Report an error."),
             }
-            col += 1;
-
-            break;
           },
           _ => lexeme.push(ch),
         }
@@ -100,6 +99,8 @@ fn lex(s: &str) -> Vec<Token> {
 
         "_" => TokenType::Dup,
         "mem" => TokenType::Mem,
+        "v" => TokenType::Load,
+        "^" => TokenType::Store,
 
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
@@ -223,6 +224,19 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  ldr x0, =MEM\n");
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::Load => {
+        s.push_str("  // <-- load -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  ldr x0, [x0]\n");
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::Store => {
+        s.push_str("  // <-- store -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  ldr x1, [x28], #8\n");
+        s.push_str("  str x0, [x1]\n");
       },
 
       TokenType::PutD => {

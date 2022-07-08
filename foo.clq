@@ -1,2 +1,7 @@
-mem putd 10 putc
+mem 'c' ^
+mem 1 + 10 ^
+'a' putc
+'b' putc
+mem v putc
+mem 1 + v putc
 
