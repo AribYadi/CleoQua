@@ -104,6 +104,7 @@ fn lex(s: &str) -> Vec<Token> {
               _ => todo!("Report an error."),
             }
           },
+          '#' => while chars.next().is_some() {},
           _ => lexeme.push(ch),
         }
         col += 1;
