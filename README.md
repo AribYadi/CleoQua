@@ -4,7 +4,7 @@ A stack-based programming language.
 
 ## To-be Features
 
-- [ ] Compiles to arm64 assembly
+- [x] Compiles to arm64 assembly
 - [ ] Compiles to x86_64 assembly
 - [ ] Turing complete
 - [ ] Static typed

@@ -1,2 +1,5 @@
 cleoqua
+*.S
+*.o
+hello-world
 

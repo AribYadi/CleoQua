@@ -1,0 +1,3 @@
+64 1 "Hello, world!" syscall3
+10 putc
+
