@@ -12,6 +12,7 @@ use std::{
 enum TokenType {
   Int,
   Char,
+  Str,
 
   Plus,
   LessThan,
@@ -54,7 +55,7 @@ fn lex(s: &str) -> Vec<Token> {
   let mut tokens = Vec::new();
 
   for (row, line) in s.split('\n').enumerate() {
-    let mut chars = line.chars();
+    let mut chars = line.chars().peekable();
 
     let mut col = 0;
     while col < line.len() {
@@ -81,6 +82,24 @@ fn lex(s: &str) -> Vec<Token> {
               _ => todo!("Report an error."),
             }
           },
+          '"' if lexeme == "" => {
+            lexeme.push('"');
+            col += 1;
+
+            while let Some(ch) = chars.peek() {
+              if *ch == '"' {
+                break;
+              }
+              lexeme.push(*ch);
+              chars.next();
+              col += 1;
+            }
+
+            match chars.next() {
+              Some('"') => lexeme.push('"'),
+              _ => todo!("Report an error."),
+            }
+          },
           _ => lexeme.push(ch),
         }
         col += 1;
@@ -93,6 +112,9 @@ fn lex(s: &str) -> Vec<Token> {
         },
         _ if is_int(&lexeme) => TokenType::Int,
         _ if lexeme.len() == 3 && &lexeme[0..1] == "'" && &lexeme[2..3] == "'" => TokenType::Char,
+        _ if lexeme.len() > 1 && &lexeme[0..1] == "\"" && &lexeme[lexeme.len() - 1..] == "\"" => {
+          TokenType::Str
+        },
 
         "+" => TokenType::Plus,
         "<" => TokenType::LessThan,
@@ -136,6 +158,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
 
   let mut block_stack = Vec::new();
+  let mut strs = Vec::new();
   let mut jmp_count = 0;
 
   s.push_str(".bss\n");
@@ -192,6 +215,19 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str(&format!("  mov x0, {}\n", token.lexeme.as_bytes()[1]));
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::Str => {
+        s.push_str("  // <-- str -->\n");
+
+        let str_ = token.lexeme[1..token.lexeme.len() - 1].to_string();
+
+        s.push_str("  sub sp, x28, #16\n");
+        s.push_str(&format!("  ldr x0, =str_{}\n", strs.len()));
+        s.push_str("  str x0, [x28, #-8]!\n");
+        s.push_str(&format!("  mov x0, {}\n", str_.as_bytes().len()));
+        s.push_str("  str x0, [x28, #-8]!\n");
+
+        strs.push(str_);
       },
 
       TokenType::Plus => {
@@ -321,6 +357,12 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   s.push_str("  mov x8, 0x5D\n");
   s.push_str("  mov x0, 0\n");
   s.push_str("  svc 0\n");
+  s.push_str("\n");
+
+  s.push_str(".data\n");
+  for (i, str_) in strs.iter().enumerate() {
+    s.push_str(&format!("  str_{i}: .ascii \"{str_}\"\n"));
+  }
 
   if !block_stack.is_empty() {
     todo!("Report an error.");
