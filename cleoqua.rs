@@ -12,9 +12,20 @@ use std::{
 enum TokenType {
   Int,
   Char,
+
   Plus,
+  LessThan,
+
+  Dup,
+
   PutD,
   PutC,
+
+  If,
+  While,
+  Do,
+  Else,
+  End,
 }
 
 #[derive(Debug)]
@@ -39,60 +50,77 @@ fn lex(s: &str) -> Vec<Token> {
 
   let mut tokens = Vec::new();
 
-  for (col, line) in s.split('\n').enumerate() {
+  for (row, line) in s.split('\n').enumerate() {
     let mut chars = line.chars();
 
-    let mut row = 0;
-    while row < line.len() {
+    let mut col = 0;
+    while col < line.len() {
       let mut lexeme = String::new();
 
       while let Some(ch) = chars.next() {
         match ch {
-          ' ' => break,
+          ' ' | '\t' => {
+            break;
+          },
           '\'' if lexeme == "" => {
             lexeme.push('\'');
-            row += 1;
+            col += 1;
 
             match chars.next() {
               Some('\'') => todo!("Report an error."),
               Some(ch) => lexeme.push(ch),
               None => todo!("Report an error."),
             }
-            row += 1;
+            col += 1;
 
             match chars.next() {
               Some('\'') => lexeme.push('\''),
               _ => todo!("Report an error."),
             }
-            row += 1;
+            col += 1;
 
             break;
           },
           _ => lexeme.push(ch),
         }
-        row += 1;
+        col += 1;
       }
 
       let type_ = match lexeme.as_str() {
-        "" => continue,
-        "+" => TokenType::Plus,
-        "putd" => TokenType::PutD,
-        "putc" => TokenType::PutC,
+        "" => {
+          col += 1;
+          continue;
+        },
         _ if is_int(&lexeme) => TokenType::Int,
         _ if lexeme.len() == 3 && &lexeme[0..1] == "'" && &lexeme[2..3] == "'" => TokenType::Char,
+
+        "+" => TokenType::Plus,
+        "<" => TokenType::LessThan,
+
+        "_" => TokenType::Dup,
+
+        "putd" => TokenType::PutD,
+        "putc" => TokenType::PutC,
+
+        "if" => TokenType::If,
+        "while" => TokenType::While,
+        "do" => TokenType::Do,
+        "else" => TokenType::Else,
+        "end" => TokenType::End,
+
         _ => todo!("Report an error."),
       };
 
-      let start = row - lexeme.len();
+      let start = col - lexeme.len();
       tokens.push(Token {
         type_,
         lexeme,
 
-        row: start,
-        col,
+        row,
+        col: start,
       });
 
-      row += 1;
+      col += 1;
     }
   }
 
@@ -101,6 +129,9 @@ fn lex(s: &str) -> Vec<Token> {
 
 fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
+
+  let mut block_stack = Vec::new();
+  let mut jmp_count = 0;
 
   s.push_str(".text\n");
 
@@ -152,6 +183,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
+
       TokenType::Plus => {
         s.push_str("  // <-- plus -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
@@ -160,6 +192,24 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
+      TokenType::LessThan => {
+        s.push_str("  // <-- less than -->\n");
+        s.push_str("  ldr x1, [x28], #8\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  cmp x0, x1\n");
+        s.push_str("  cset x0, lt\n");
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+
+      TokenType::Dup => {
+        s.push_str("  // <-- dup -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  sub sp, x28, #16\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+
       TokenType::PutD => {
         s.push_str("  // <-- putd -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
@@ -172,14 +222,80 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  mov x1, x28\n");
         s.push_str("  mov x2, #1\n");
         s.push_str("  svc 0\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+      },
+
+      TokenType::If => {
+        s.push_str("  // <-- if -->\n");
+
+        // To allow `else if` we jump to the same jump dest of `else`
+        if let Some(TokenType::Else) = block_stack.last() {
+        } else {
+          jmp_count += 1;
+        }
+
+        block_stack.push(TokenType::If);
+      },
+      TokenType::While => {
+        s.push_str("  // <-- while -->\n");
+
+        // We create a new label for `end` to jump to
+        jmp_count += 1;
+        s.push_str(&format!("jmp_{jmp_count}:\n"));
+        jmp_count += 1;
+
+        block_stack.push(TokenType::While);
+      },
+      TokenType::Do => {
+        s.push_str("  // <-- do -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  cmp x0, 1\n");
+        s.push_str(&format!("  b.ne jmp_{jmp_count}\n"));
+      },
+      TokenType::Else => {
+        s.push_str("  // <-- else -->\n");
+        // Jump to end if `else` was reached
+        s.push_str(&format!("  b jmp_{}\n", jmp_count + 1));
+
+        // Otherwise we jump to this label if `if`'s condition was falsy
+        match block_stack.pop() {
+          Some(TokenType::If) => s.push_str(&format!("jmp_{jmp_count}:\n")),
+          _ => todo!("Report an error."),
+        }
+
+        block_stack.push(TokenType::Else);
+        jmp_count += 1;
+      },
+      TokenType::End => {
+        s.push_str("  // <-- end -->\n");
+
+        let block_type = match block_stack.pop() {
+          Some(b) => b,
+          None => todo!("Report an error."),
+        };
+
+        match block_type {
+          // End for if's and else's doesn't really do anything special
+          TokenType::If | TokenType::Else => (),
+
+          TokenType::While => s.push_str(&format!("  b jmp_{}\n", jmp_count - 1)),
+
+          _ => todo!("Report an error."),
+        }
+
+        s.push_str(&format!("jmp_{jmp_count}:\n"));
       },
     }
   }
 
-  s.push_str("  // <-- eixt -->\n");
+  s.push_str("  // <-- exit -->\n");
   s.push_str("  mov x8, 0x5D\n");
   s.push_str("  mov x0, 0\n");
   s.push_str("  svc 0\n");
+
+  if !block_stack.is_empty() {
+    todo!("Report an error.");
+  }
 
   s
 }

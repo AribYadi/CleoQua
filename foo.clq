@@ -1,15 +1,7 @@
-'H' putc
-'e' putc
-'l' putc
-'l' putc
-'o' putc
-',' putc
-' ' putc
-'W' putc
-'o' putc
-'r' putc
-'l' putc
-'d' putc
-'!' putc
-10 putc
+0
+while _ 10 < do
+	_ putd
+	10 putc
+	1 +
+end
 
