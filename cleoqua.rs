@@ -245,7 +245,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         jmp_count += 1;
 
         block_stack.push(TokenType::While);
-      }
+      },
       TokenType::Do => {
         s.push_str("  // <-- do -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
@@ -292,6 +292,10 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   s.push_str("  mov x8, 0x5D\n");
   s.push_str("  mov x0, 0\n");
   s.push_str("  svc 0\n");
+
+  if !block_stack.is_empty() {
+    todo!("Report an error.");
+  }
 
   s
 }
