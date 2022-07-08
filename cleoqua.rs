@@ -18,6 +18,8 @@ enum TokenType {
   LessThan,
 
   Dup,
+  Over,
+
   Mem,
   Load,
   Store,
@@ -121,6 +123,8 @@ fn lex(s: &str) -> Vec<Token> {
         "<" => TokenType::LessThan,
 
         "_" => TokenType::Dup,
+        "over" => TokenType::Over,
+
         "mem" => TokenType::Mem,
         "v" => TokenType::Load,
         "^" => TokenType::Store,
@@ -258,6 +262,16 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  str x0, [x28, #-8]!\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
+      TokenType::Over => {
+        s.push_str("  // <-- over -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  ldr x1, [x28], #8\n");
+        s.push_str("  sub sp, x28, #24\n");
+        s.push_str("  str x1, [x28, #-8]!\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+        s.push_str("  str x1, [x28, #-8]!\n");
+      },
+
       TokenType::Mem => {
         s.push_str("  // <-- mem -->\n");
         s.push_str("  ldr x0, =MEM\n");
@@ -288,6 +302,8 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
         s.push_str("  ldr x8, [x28], #8\n");
         s.push_str("  svc 0\n");
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
       },
 
       TokenType::PutD => {
