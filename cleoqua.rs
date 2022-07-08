@@ -220,6 +220,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  mov x1, x28\n");
         s.push_str("  mov x2, #1\n");
         s.push_str("  svc 0\n");
+        s.push_str("  ldr x0, [x28], #8\n");
       },
 
       TokenType::If => {
