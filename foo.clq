@@ -1,1 +1,6 @@
+if 20 20 < do
+	'1' putc
+else
+	'2' putc
+end
 

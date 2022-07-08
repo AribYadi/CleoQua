@@ -14,6 +14,7 @@ enum TokenType {
   Char,
 
   Plus,
+  LessThan,
 
   PutD,
   PutC,
@@ -91,6 +92,7 @@ fn lex(s: &str) -> Vec<Token> {
         _ if lexeme.len() == 3 && &lexeme[0..1] == "'" && &lexeme[2..3] == "'" => TokenType::Char,
 
         "+" => TokenType::Plus,
+        "<" => TokenType::LessThan,
 
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
@@ -184,6 +186,15 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
+      TokenType::LessThan => {
+        s.push_str("  // <-- less than -->\n");
+        s.push_str("  ldr x1, [x28], #8\n");
+        s.push_str("  ldr x0, [x28], #8\n");
+        s.push_str("  cmp x0, x1\n");
+        s.push_str("  cset x0, lt\n");
+        s.push_str("  sub sp, x28, #8\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
 
       TokenType::PutD => {
         s.push_str("  // <-- putd -->\n");
@@ -218,7 +229,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       },
       TokenType::Else => {
         s.push_str("  // <-- else -->\n");
-        // Jump to end if else was reached
+        // Jump to end if `else` was reached
         s.push_str(&format!("  b jmp_{}\n", block_total + 1));
 
         // Otherwise we jump to this label if `if`'s condition was falsy
