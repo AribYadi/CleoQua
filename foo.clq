@@ -1,7 +1,2 @@
-0
-while _ 10 < do
-	_ putd
-	10 putc
-	1 +
-end
+mem putd 10 putc
 

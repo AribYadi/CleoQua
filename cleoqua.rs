@@ -17,6 +17,7 @@ enum TokenType {
   LessThan,
 
   Dup,
+  Mem,
 
   PutD,
   PutC,
@@ -98,6 +99,7 @@ fn lex(s: &str) -> Vec<Token> {
         "<" => TokenType::LessThan,
 
         "_" => TokenType::Dup,
+        "mem" => TokenType::Mem,
 
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
@@ -127,11 +129,18 @@ fn lex(s: &str) -> Vec<Token> {
   tokens
 }
 
+const MEM_LENGTH: usize = 480_000;
+
 fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
 
   let mut block_stack = Vec::new();
   let mut jmp_count = 0;
+
+  s.push_str(".bss\n");
+  s.push_str(&format!(".lcomm MEM, {MEM_LENGTH}\n"));
+
+  s.push_str("\n");
 
   s.push_str(".text\n");
 
@@ -207,6 +216,12 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  ldr x0, [x28], #8\n");
         s.push_str("  sub sp, x28, #16\n");
         s.push_str("  str x0, [x28, #-8]!\n");
+        s.push_str("  str x0, [x28, #-8]!\n");
+      },
+      TokenType::Mem => {
+        s.push_str("  // <-- mem -->\n");
+        s.push_str("  ldr x0, =MEM\n");
+        s.push_str("  sub sp, x28, #8\n");
         s.push_str("  str x0, [x28, #-8]!\n");
       },
 
