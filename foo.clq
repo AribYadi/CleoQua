@@ -1,4 +1,7 @@
-'a'
-_ 1 + putc
-putc
+0
+while _ 10 < do
+	_ putd
+	10 putc
+	1 +
+end
 

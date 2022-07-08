@@ -22,6 +22,7 @@ enum TokenType {
   PutC,
 
   If,
+  While,
   Do,
   Else,
   End,
@@ -102,6 +103,7 @@ fn lex(s: &str) -> Vec<Token> {
         "putc" => TokenType::PutC,
 
         "if" => TokenType::If,
+        "while" => TokenType::While,
         "do" => TokenType::Do,
         "else" => TokenType::Else,
         "end" => TokenType::End,
@@ -129,7 +131,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
 
   let mut block_stack = Vec::new();
-  let mut block_total = 0;
+  let mut jmp_count = 0;
 
   s.push_str(".text\n");
 
@@ -229,30 +231,40 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         // To allow `else if` we jump to the same jump dest of `else`
         if let Some(TokenType::Else) = block_stack.last() {
         } else {
-          block_total += 1;
+          jmp_count += 1;
         }
 
         block_stack.push(TokenType::If);
       },
+      TokenType::While => {
+        s.push_str("  // <-- while -->\n");
+
+        // We create a new label for `end` to jump to
+        jmp_count += 1;
+        s.push_str(&format!("jmp_{jmp_count}:\n"));
+        jmp_count += 1;
+
+        block_stack.push(TokenType::While);
+      }
       TokenType::Do => {
         s.push_str("  // <-- do -->\n");
         s.push_str("  ldr x0, [x28], #8\n");
         s.push_str("  cmp x0, 1\n");
-        s.push_str(&format!("  b.ne jmp_{block_total}\n"));
+        s.push_str(&format!("  b.ne jmp_{jmp_count}\n"));
       },
       TokenType::Else => {
         s.push_str("  // <-- else -->\n");
         // Jump to end if `else` was reached
-        s.push_str(&format!("  b jmp_{}\n", block_total + 1));
+        s.push_str(&format!("  b jmp_{}\n", jmp_count + 1));
 
         // Otherwise we jump to this label if `if`'s condition was falsy
         match block_stack.pop() {
-          Some(TokenType::If) => s.push_str(&format!("jmp_{block_total}:\n")),
+          Some(TokenType::If) => s.push_str(&format!("jmp_{jmp_count}:\n")),
           _ => todo!("Report an error."),
         }
 
         block_stack.push(TokenType::Else);
-        block_total += 1;
+        jmp_count += 1;
       },
       TokenType::End => {
         s.push_str("  // <-- end -->\n");
@@ -266,10 +278,12 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
           // End for if's and else's doesn't really do anything special
           TokenType::If | TokenType::Else => (),
 
+          TokenType::While => s.push_str(&format!("  b jmp_{}\n", jmp_count - 1)),
+
           _ => todo!("Report an error."),
         }
 
-        s.push_str(&format!("jmp_{block_total}:\n"));
+        s.push_str(&format!("jmp_{jmp_count}:\n"));
       },
     }
   }
