@@ -19,6 +19,7 @@ enum TokenType {
 
   Dup,
   Over,
+  Dropp,
 
   Mem,
   Load,
@@ -124,6 +125,7 @@ fn lex(s: &str) -> Vec<Token> {
 
         "_" => TokenType::Dup,
         "over" => TokenType::Over,
+        "drop" => TokenType::Dropp,
 
         "mem" => TokenType::Mem,
         "v" => TokenType::Load,
@@ -270,6 +272,10 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         s.push_str("  str x1, [x28, #-8]!\n");
         s.push_str("  str x0, [x28, #-8]!\n");
         s.push_str("  str x1, [x28, #-8]!\n");
+      },
+      TokenType::Dropp => {
+        s.push_str("  // <-- drop -->\n");
+        s.push_str("  ldr x0, [x28], #8\n");
       },
 
       TokenType::Mem => {

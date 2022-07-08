@@ -1,3 +1,2 @@
-'a' 'b' over 2 +
-putc putc putc
+1 2 3 drop putd putd
 
