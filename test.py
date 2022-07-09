@@ -123,8 +123,6 @@ def test_file(path: str):
     sys.exit(1)
 
 if __name__ == '__main__':
-  os.chdir(BASE_DIR)
-
   test_dir = './tests'
   update = False
 

@@ -10,10 +10,12 @@ name: Continuous integration
 
 jobs:
   run-tests:
-    name: Run Tests
+    name: Check Building
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
+      - name: Install Mypy
+        run: pip3 install mypy
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -25,20 +27,8 @@ jobs:
         run: rustc -o cleoqua cleoqua.rs
       - name: Clippy
         run: clippy-driver -D warnings cleoqua.rs
-      - uses: uraimo/run-on-arch-action@v2
-        name: Run `test.py` on arm64
-        with:
-          arch: aarch64
-          distro: ubuntu_latest
-          githubToken: ${{ github.token }}
-          install: |
-            apt-get update -q -y
-            apt-get install -q -y wget tar bzip2
-          run: |
-            wget -q https://downloads.python.org/pypy/pypy3.9-v7.3.9-aarch64.tar.bz2
-            tar fx pypy3.9-v7.3.9-aarch64.tar.bz2
-            ./pypy3.9-v7.3.9-aarch64/bin/pypy3 test.py tests
-            ./pypy3.9-v7.3.9-aarch64/bin/pypy3 test.py examples
+      - name: Mypy test.py
+        run: mypy test.py
 
   check-fmt:
     name: Check Formatting
