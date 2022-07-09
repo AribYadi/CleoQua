@@ -24,30 +24,17 @@ jobs:
           toolchain: stable
           override: true
           components: clippy
+      - uses: Swatinem/rust-cache@v1
       - name: Build
         run: rustc -o cleoqua cleoqua.rs
         shell: bash
       - name: Clippy
-        run: clippy-driver -D warnings
+        run: clippy-driver -D warnings cleoqua.rs
         shell: bash
+      - name: Check Formatting
+        run: rustfmt --check cleoqua.rs
       - name: Run `test.py`
         run: |
           pypy ./test.py ./tests
           pypy ./test.py ./examples
-        shell: bash
-
-  check-fmt:
-    name: Check Formatting
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: nightly
-          override: true
-          components: rustfmt
-      - uses: Swatinem/rust-cache@v1
-      - name: Check Formatting
-        run: rustfmt --check cleoqua.rs
         shell: bash
