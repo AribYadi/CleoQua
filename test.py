@@ -130,7 +130,9 @@ if __name__ == '__main__':
 
     i += 1
 
+  print("[INFO]: Building CleoQua..")
   subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True)
+  print()
 
   for root, _, files in os.walk(test_dir):
     for file in filter(lambda path: path.endswith(CLEOQUA_EXT), files):
