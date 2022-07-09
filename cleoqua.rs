@@ -1,14 +1,15 @@
 use std::{
   env,
+  fmt::Write as _,
   fs::File,
   io::{
     Read,
-    Write,
+    Write as _,
   },
   process,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum TokenType {
   Int,
   Char,
@@ -36,16 +37,37 @@ enum TokenType {
   End,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Token {
   type_: TokenType,
   lexeme: String,
 
+  origin: String,
   row: usize,
   col: usize,
 }
 
-fn lex(s: &str) -> Vec<Token> {
+macro_rules! err {
+  ($origin:expr, $row:expr, $col:expr, $($msg:tt)*) => {
+    eprint!("{}:{}:{}: [ERR]: ", $origin, $row + 1, $col + 1);
+    eprintln!($($msg)*);
+  };
+  ($tok:ident, $($msg:tt)*) => {
+    err!($tok.origin, $tok.row, $tok.col, $($msg)*);
+  };
+}
+
+macro_rules! note {
+  ($origin:expr, $row:expr, $col:expr, $($msg:tt)*) => {
+    eprint!("{}:{}:{}: [NOTE]: ", $origin, $row + 1, $col + 1);
+    eprintln!($($msg)*);
+  };
+  ($tok:ident, $($msg:tt)*) => {
+    note!($tok.origin, $tok.row, $tok.col, $($msg)*);
+  };
+}
+
+fn lex(origin: &str, s: &str) -> Vec<Token> {
   fn is_int(s: &str) -> bool {
     for ch in s.chars() {
       if let '0'..='9' = ch {
@@ -70,23 +92,52 @@ fn lex(s: &str) -> Vec<Token> {
           ' ' | '\t' => {
             break;
           },
-          '\'' if lexeme == "" => {
+          '\'' if lexeme.is_empty() => {
             lexeme.push('\'');
             col += 1;
 
             match chars.next() {
-              Some('\'') => todo!("Report an error."),
+              Some('\'') => {
+                err!(origin, row, col, "Empty chars are not allowed!");
+                process::exit(1);
+              },
               Some(ch) => lexeme.push(ch),
-              None => todo!("Report an error."),
+              None => {
+                err!(
+                  origin,
+                  row,
+                  col,
+                  "Expected a character but found end of file!"
+                );
+                process::exit(1);
+              },
             }
             col += 1;
 
             match chars.next() {
               Some('\'') => lexeme.push('\''),
-              _ => todo!("Report an error."),
+              Some(_) => {
+                err!(
+                  origin,
+                  row,
+                  col,
+                  "Bigger than one character chars are not allowed!"
+                );
+                note!(
+                  origin,
+                  row,
+                  col,
+                  "Maybe you meant to use `\"` instead of `'`?"
+                );
+                process::exit(1);
+              },
+              None => {
+                err!(origin, row, col, "Unclosed character literal!");
+                process::exit(1);
+              },
             }
           },
-          '"' if lexeme == "" => {
+          '"' if lexeme.is_empty() => {
             lexeme.push('"');
             col += 1;
 
@@ -101,7 +152,11 @@ fn lex(s: &str) -> Vec<Token> {
 
             match chars.next() {
               Some('"') => lexeme.push('"'),
-              _ => todo!("Report an error."),
+              _ => {
+                err!(origin, row, col, "Unclosed string delimiter!");
+                note!(origin, row, col, "Multi-line strings are not supported.");
+                process::exit(1);
+              },
             }
           },
           '#' => while chars.next().is_some() {},
@@ -110,6 +165,7 @@ fn lex(s: &str) -> Vec<Token> {
         col += 1;
       }
 
+      let start = col - lexeme.len();
       let type_ = match lexeme.as_str() {
         "" => {
           col += 1;
@@ -143,14 +199,17 @@ fn lex(s: &str) -> Vec<Token> {
         "else" => TokenType::Else,
         "end" => TokenType::End,
 
-        _ => todo!("Report an error."),
+        _ => {
+          err!(origin, row, start, "Unknown token `{lexeme}`!");
+          process::exit(1);
+        },
       };
 
-      let start = col - lexeme.len();
       tokens.push(Token {
         type_,
         lexeme,
 
+        origin: origin.to_string(),
         row,
         col: start,
       });
@@ -171,239 +230,268 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut strs = Vec::new();
   let mut jmp_count = 0;
 
-  s.push_str(".bss\n");
-  s.push_str(&format!(".lcomm MEM, {MEM_LENGTH}\n"));
+  let _ = writeln!(s, ".bss");
+  let _ = writeln!(s, ".lcomm MEM, {MEM_LENGTH}");
 
-  s.push_str("\n");
+  let _ = writeln!(s);
 
-  s.push_str(".text\n");
+  let _ = writeln!(s, ".text");
 
-  s.push_str("putd:\n");
-  s.push_str("  stp x29, x30, [x28, -48]!\n");
-  s.push_str("  mov x7, -3689348814741910324\n");
-  s.push_str("  mov x2, 0\n");
-  s.push_str("  add x1, x28, 16\n");
-  s.push_str("  movk x7, 0xcccd, lsl 0\n");
-  s.push_str("  mov x29, x28\n");
-  s.push_str(".L2:\n");
-  s.push_str("  umulh x4, x0, x7\n");
-  s.push_str("  sub x5, x1, x2\n");
-  s.push_str("  mov x6, x0\n");
-  s.push_str("  add x2, x2, 1\n");
-  s.push_str("  lsr x4, x4, 3\n");
-  s.push_str("  add x3, x4, x4, lsl 2\n");
-  s.push_str("  sub x3, x0, x3, lsl 1\n");
-  s.push_str("  mov x0, x4\n");
-  s.push_str("  add w3, w3, 48\n");
-  s.push_str("  strb w3, [x5, 31]\n");
-  s.push_str("  cmp x6, 9\n");
-  s.push_str("  bhi .L2\n");
-  s.push_str("  sub x1, x1, x2\n");
-  s.push_str("  mov w0, 1\n");
-  s.push_str("  add x1, x1, 32\n");
-  s.push_str("  mov x8, 0x40\n");
-  s.push_str("  svc 0\n");
-  s.push_str("  ldp x29, x30, [x28], 48\n");
-  s.push_str("  ret\n");
-  s.push_str("\n");
+  let _ = writeln!(s, "putd:");
+  let _ = writeln!(s, "  stp x29, x30, [x28, -48]!");
+  let _ = writeln!(s, "  mov x7, -3689348814741910324");
+  let _ = writeln!(s, "  mov x2, 0");
+  let _ = writeln!(s, "  add x1, x28, 16");
+  let _ = writeln!(s, "  movk x7, 0xcccd, lsl 0");
+  let _ = writeln!(s, "  mov x29, x28");
+  let _ = writeln!(s, ".L2:");
+  let _ = writeln!(s, "  umulh x4, x0, x7");
+  let _ = writeln!(s, "  sub x5, x1, x2");
+  let _ = writeln!(s, "  mov x6, x0");
+  let _ = writeln!(s, "  add x2, x2, 1");
+  let _ = writeln!(s, "  lsr x4, x4, 3");
+  let _ = writeln!(s, "  add x3, x4, x4, lsl 2");
+  let _ = writeln!(s, "  sub x3, x0, x3, lsl 1");
+  let _ = writeln!(s, "  mov x0, x4");
+  let _ = writeln!(s, "  add w3, w3, 48");
+  let _ = writeln!(s, "  strb w3, [x5, 31]");
+  let _ = writeln!(s, "  cmp x6, 9");
+  let _ = writeln!(s, "  bhi .L2");
+  let _ = writeln!(s, "  sub x1, x1, x2");
+  let _ = writeln!(s, "  mov w0, 1");
+  let _ = writeln!(s, "  add x1, x1, 32");
+  let _ = writeln!(s, "  mov x8, 0x40");
+  let _ = writeln!(s, "  svc 0");
+  let _ = writeln!(s, "  ldp x29, x30, [x28], 48");
+  let _ = writeln!(s, "  ret");
+  let _ = writeln!(s);
 
-  s.push_str(".global _start\n");
-  s.push_str("_start:\n");
+  let _ = writeln!(s, ".global _start");
+  let _ = writeln!(s, "_start:");
 
-  s.push_str("  mov x28, sp\n");
+  let _ = writeln!(s, "  mov x28, sp");
 
   for token in tokens {
     match token.type_ {
       TokenType::Int => {
-        s.push_str("  // <-- int -->\n");
-        s.push_str(&format!("  mov x0, {}\n", token.lexeme));
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- int -->");
+        let _ = writeln!(s, "  mov x0, {}", token.lexeme);
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::Char => {
-        s.push_str("  // <-- char -->\n");
-        s.push_str(&format!("  mov x0, {}\n", token.lexeme.as_bytes()[1]));
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- char -->");
+        let _ = writeln!(s, "  mov x0, {}", token.lexeme.as_bytes()[1]);
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::Str => {
-        s.push_str("  // <-- str -->\n");
+        let _ = writeln!(s, "  // <-- str -->");
 
         let str_ = token.lexeme[1..token.lexeme.len() - 1].to_string();
 
-        s.push_str("  sub sp, x28, #16\n");
-        s.push_str(&format!("  ldr x0, =str_{}\n", strs.len()));
-        s.push_str("  str x0, [x28, #-8]!\n");
-        s.push_str(&format!("  mov x0, {}\n", str_.as_bytes().len()));
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  sub sp, x28, #16");
+        let _ = writeln!(s, "  ldr x0, =str_{}", strs.len());
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  mov x0, {}", str_.as_bytes().len());
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
 
         strs.push(str_);
       },
 
       TokenType::Plus => {
-        s.push_str("  // <-- plus -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  ldr x1, [x28], #8\n");
-        s.push_str("  add x0, x0, x1\n");
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- plus -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  add x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::LessThan => {
-        s.push_str("  // <-- less than -->\n");
-        s.push_str("  ldr x1, [x28], #8\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  cmp x0, x1\n");
-        s.push_str("  cset x0, lt\n");
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- less than -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  cmp x0, x1");
+        let _ = writeln!(s, "  cset x0, lt");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
 
       TokenType::Dup => {
-        s.push_str("  // <-- dup -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  sub sp, x28, #16\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- dup -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  sub sp, x28, #16");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::Over => {
-        s.push_str("  // <-- over -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  ldr x1, [x28], #8\n");
-        s.push_str("  sub sp, x28, #24\n");
-        s.push_str("  str x1, [x28, #-8]!\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
-        s.push_str("  str x1, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- over -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  sub sp, x28, #24");
+        let _ = writeln!(s, "  str x1, [x28, #-8]!");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  str x1, [x28, #-8]!");
       },
       TokenType::Dropp => {
-        s.push_str("  // <-- drop -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
+        let _ = writeln!(s, "  // <-- drop -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
       },
 
       TokenType::Mem => {
-        s.push_str("  // <-- mem -->\n");
-        s.push_str("  ldr x0, =MEM\n");
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- mem -->");
+        let _ = writeln!(s, "  ldr x0, =MEM");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::Load => {
-        s.push_str("  // <-- load -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  ldr x0, [x0]\n");
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  // <-- load -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x0]");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::Store => {
-        s.push_str("  // <-- store -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  ldr x1, [x28], #8\n");
-        s.push_str("  str x0, [x1]\n");
+        let _ = writeln!(s, "  // <-- store -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  str x0, [x1]");
       },
       TokenType::Syscall => {
-        s.push_str("  // <-- syscall -->\n");
+        let _ = writeln!(s, "  // <-- syscall -->");
 
         let syscall_argc: usize = token.lexeme[token.lexeme.len() - 1..].parse().unwrap();
 
         for i in (0..syscall_argc).rev() {
-          s.push_str(&format!("  ldr x{i}, [x28], #8\n"));
+          let _ = writeln!(s, "  ldr x{i}, [x28], #8");
         }
 
-        s.push_str("  ldr x8, [x28], #8\n");
-        s.push_str("  svc 0\n");
-        s.push_str("  sub sp, x28, #8\n");
-        s.push_str("  str x0, [x28, #-8]!\n");
+        let _ = writeln!(s, "  ldr x8, [x28], #8");
+        let _ = writeln!(s, "  svc 0");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
 
       TokenType::PutD => {
-        s.push_str("  // <-- putd -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  bl putd\n");
+        let _ = writeln!(s, "  // <-- putd -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  bl putd");
       },
       TokenType::PutC => {
-        s.push_str("  // <-- putc -->\n");
-        s.push_str("  mov x8, 0x40\n");
-        s.push_str("  mov x0, #1\n");
-        s.push_str("  mov x1, x28\n");
-        s.push_str("  mov x2, #1\n");
-        s.push_str("  svc 0\n");
-        s.push_str("  ldr x0, [x28], #8\n");
+        let _ = writeln!(s, "  // <-- putc -->");
+        let _ = writeln!(s, "  mov x8, 0x40");
+        let _ = writeln!(s, "  mov x0, #1");
+        let _ = writeln!(s, "  mov x1, x28");
+        let _ = writeln!(s, "  mov x2, #1");
+        let _ = writeln!(s, "  svc 0");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
       },
 
       TokenType::If => {
-        s.push_str("  // <-- if -->\n");
+        let _ = writeln!(s, "  // <-- if -->");
 
         // To allow `else if` we jump to the same jump dest of `else`
-        if let Some(TokenType::Else) = block_stack.last() {
+        if let Some(Token {
+          type_: TokenType::Else,
+          ..
+        }) = block_stack.last()
+        {
         } else {
           jmp_count += 1;
         }
 
-        block_stack.push(TokenType::If);
+        block_stack.push(token.clone());
       },
       TokenType::While => {
-        s.push_str("  // <-- while -->\n");
+        let _ = writeln!(s, "  // <-- while -->");
 
         // We create a new label for `end` to jump to
         jmp_count += 1;
-        s.push_str(&format!("jmp_{jmp_count}:\n"));
+        let _ = writeln!(s, "jmp_{jmp_count}:");
         jmp_count += 1;
 
-        block_stack.push(TokenType::While);
+        block_stack.push(token.clone());
       },
       TokenType::Do => {
-        s.push_str("  // <-- do -->\n");
-        s.push_str("  ldr x0, [x28], #8\n");
-        s.push_str("  cmp x0, 1\n");
-        s.push_str(&format!("  b.ne jmp_{jmp_count}\n"));
+        let _ = writeln!(s, "  // <-- do -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  cmp x0, 1");
+        let _ = writeln!(s, "  b.ne jmp_{jmp_count}");
       },
       TokenType::Else => {
-        s.push_str("  // <-- else -->\n");
+        let _ = writeln!(s, "  // <-- else -->");
         // Jump to end if `else` was reached
-        s.push_str(&format!("  b jmp_{}\n", jmp_count + 1));
+        let _ = writeln!(s, "  b jmp_{}", jmp_count + 1);
 
         // Otherwise we jump to this label if `if`'s condition was falsy
         match block_stack.pop() {
-          Some(TokenType::If) => s.push_str(&format!("jmp_{jmp_count}:\n")),
-          _ => todo!("Report an error."),
+          Some(Token {
+            type_: TokenType::If,
+            ..
+          }) => {
+            let _ = writeln!(s, "jmp_{jmp_count}:");
+          },
+          Some(block_tok) => {
+            err!(
+              token,
+              "`else` cannot be appended to `{}`!",
+              block_tok.lexeme
+            );
+            note!(block_tok, "`{}`'s block was opened here.", block_tok.lexeme);
+            process::exit(1);
+          },
+          None => {
+            err!(token, "Found a lone `else` block!");
+            process::exit(1);
+          },
         }
 
-        block_stack.push(TokenType::Else);
+        block_stack.push(token.clone());
         jmp_count += 1;
       },
       TokenType::End => {
-        s.push_str("  // <-- end -->\n");
+        let _ = writeln!(s, "  // <-- end -->");
 
         let block_type = match block_stack.pop() {
-          Some(b) => b,
-          None => todo!("Report an error."),
+          Some(b) => b.type_,
+          None => {
+            err!(token, "Found a lone `end`!");
+            process::exit(1);
+          },
         };
 
         match block_type {
           // End for if's and else's doesn't really do anything special
           TokenType::If | TokenType::Else => (),
 
-          TokenType::While => s.push_str(&format!("  b jmp_{}\n", jmp_count - 1)),
+          TokenType::While => {
+            let _ = writeln!(s, "  b jmp_{}", jmp_count - 1);
+          },
 
-          _ => todo!("Report an error."),
+          _ => unreachable!(),
         }
 
-        s.push_str(&format!("jmp_{jmp_count}:\n"));
+        let _ = writeln!(s, "jmp_{jmp_count}:");
       },
     }
   }
 
-  s.push_str("  // <-- exit -->\n");
-  s.push_str("  mov x8, 0x5D\n");
-  s.push_str("  mov x0, 0\n");
-  s.push_str("  svc 0\n");
-  s.push_str("\n");
+  let _ = writeln!(s, "  // <-- exit -->");
+  let _ = writeln!(s, "  mov x8, 0x5D");
+  let _ = writeln!(s, "  mov x0, 0");
+  let _ = writeln!(s, "  svc 0");
+  let _ = writeln!(s);
 
-  s.push_str(".data\n");
+  let _ = writeln!(s, ".data");
   for (i, str_) in strs.iter().enumerate() {
-    s.push_str(&format!("  str_{i}: .ascii \"{str_}\"\n"));
+    let _ = writeln!(s, "  str_{i}: .ascii \"{str_}\"");
   }
 
   if !block_stack.is_empty() {
-    todo!("Report an error.");
+    for block_tok in block_stack.iter().rev() {
+      err!(block_tok, "`{}` doesn't have an `end`!", block_tok.lexeme);
+    }
+    process::exit(1);
   }
 
   s
@@ -464,7 +552,7 @@ fn main() {
     },
   };
 
-  let tokens = lex(&file_contents);
+  let tokens = lex(&file, &file_contents);
   let asm = compile_to_arm64_asm(tokens);
 
   let mut asm_path = file[..file.len() - 4].to_string();
