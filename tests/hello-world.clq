@@ -1,0 +1,6 @@
+# Calls syscall number 64
+64 1 "Hello, world!" syscall3
+
+# Prints newline
+10 putc
+
