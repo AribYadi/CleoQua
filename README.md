@@ -10,6 +10,12 @@ A stack-based programming language.
 - [ ] Static typed
 - [ ] Optimized for speed
 
+## Quick Start
+
+```bash
+rustc -o cleoqua cleoqua.rs
+```
+
 ## License
 
 [Apache-2.0](./LICENSE)
