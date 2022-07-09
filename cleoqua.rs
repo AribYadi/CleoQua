@@ -16,6 +16,7 @@ enum TokenType {
   Str,
 
   Plus,
+  Minus,
   LessThan,
 
   Dup,
@@ -178,6 +179,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         },
 
         "+" => TokenType::Plus,
+        "-" => TokenType::Minus,
         "<" => TokenType::LessThan,
 
         "_" => TokenType::Dup,
@@ -304,6 +306,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  ldr x1, [x28], #8");
         let _ = writeln!(s, "  add x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::Minus => {
+        let _ = writeln!(s, "  // <-- minus -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  sub x0, x0, x1");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
