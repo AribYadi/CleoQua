@@ -70,7 +70,11 @@ macro_rules! note {
 
 fn lex(origin: &str, s: &str) -> Vec<Token> {
   fn is_int(s: &str) -> bool {
-    for ch in s.chars() {
+    let mut chars = s.chars().peekable();
+
+    while let Some('-') = chars.peek() { chars.next(); }
+
+    for ch in chars {
       if let '0'..='9' = ch {
       } else {
         return false;
@@ -398,7 +402,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       },
       TokenType::PutC => {
         let _ = writeln!(s, "  // <-- putc -->");
-        let _ = writeln!(s, "  mov x8, 0x40");
+        let _ = writeln!(s, "  mov x8, 64");
         let _ = writeln!(s, "  mov x0, #1");
         let _ = writeln!(s, "  mov x1, x28");
         let _ = writeln!(s, "  mov x2, #1");
@@ -496,7 +500,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   }
 
   let _ = writeln!(s, "  // <-- exit -->");
-  let _ = writeln!(s, "  mov x8, 0x5D");
+  let _ = writeln!(s, "  mov x8, 93");
   let _ = writeln!(s, "  mov x0, 0");
   let _ = writeln!(s, "  svc 0");
   let _ = writeln!(s);
