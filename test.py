@@ -67,11 +67,19 @@ def usage():
   print('[INFO]:     --help,   -h: Prints this help message.')
   print('[INFO]:     --update, -u: Prints this help message.')
 
+
 def update_file(path: str):
   print(f'[INFO]: Updating output of `{path}`..')
 
-  result = subprocess.run(['./cleoqua', path], capture_output = True)
+  asm_path = path[:-len(CLEOQUA_EXT)] + '.S'
+  obj_path = path[:-len(CLEOQUA_EXT)] + '.o'
+  exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
+
+  subprocess.run(['./cleoqua', path], capture_output = True)
+  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
+  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
+  result = subprocess.run([exe_path], capture_output = True)
 
   TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
 
@@ -80,8 +88,15 @@ def update_file(path: str):
 def test_file(path: str):
   print(f'[INFO]: Testing output of `{path}`..')
 
-  result = subprocess.run(['./cleoqua', path], capture_output = True)
+  asm_path = path[:-len(CLEOQUA_EXT)] + '.S'
+  obj_path = path[:-len(CLEOQUA_EXT)] + '.o'
+  exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
+
+  subprocess.run(['./cleoqua', path], capture_output = True)
+  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
+  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
+  result = subprocess.run([exe_path], capture_output = True)
 
   result = TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n'))
 
