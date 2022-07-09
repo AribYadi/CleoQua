@@ -189,7 +189,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
 
         "_" => TokenType::Dup,
         "over" => TokenType::Over,
-        "drop" => TokenType::Dropp,
+        "!" => TokenType::Dropp,
         "<->" => TokenType::Swap,
 
         "mem" => TokenType::Mem,
