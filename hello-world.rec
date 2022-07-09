@@ -1,0 +1,8 @@
+:exitcode 1:
+:stdout 0:
+
+:end:
+:stderr 42:
+[ERR]: Cannot read file `hello-world.clq`
+
+:end:
