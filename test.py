@@ -78,12 +78,13 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  subprocess.run(['./cleoqua', path], capture_output = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  result = subprocess.run([exe_path], capture_output = True)
+  subprocess.Popen(['./cleoqua', path], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
+  subprocess.Popen(['as', '-o', obj_path, asm_path], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
+  subprocess.Popen(['ld', '-o', exe_path, obj_path], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
+  proc = subprocess.Popen([exe_path], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+  stdout, stderr = proc.communicate()
 
-  TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
+  TestCase(proc.returncode, stdout.replace(b'\r\n', b'\n'), stderr.replace(b'\r\n', b'\n')).write(rec_path)
 
   print(f'[INFO]: Updated output of `{path}`')
 
@@ -101,12 +102,13 @@ def test_file(path: str):
     print(f'[WARN]: Record path for `{path}` not found. Skipping.')
     return
 
-  subprocess.run(['./cleoqua', path], capture_output = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  result = subprocess.run([exe_path], capture_output = True)
+  subprocess.Popen(['./cleoqua', path], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
+  subprocess.Popen(['as', '-o', obj_path, asm_path], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
+  subprocess.Popen(['ld', '-o', exe_path, obj_path], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
+  proc = subprocess.Popen([exe_path], stdout = subprocess.PIPE, stderr = subprocess.PIPE)
+  stdout, stderr = proc.communicate()
 
-  result = TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n'))
+  result = TestCase(proc.returncode, stdout.replace(b'\r\n', b'\n'), stderr.replace(b'\r\n', b'\n'))
 
   if recorded == result:
     print(f'[INFO]: `{path}` matched its recorded output.');
@@ -114,12 +116,12 @@ def test_file(path: str):
     print(f'[ERR]: Output of `{path}` does not match its recorded output!', file = sys.stderr)
     print(f'[ERR]: Output:', file = sys.stderr)
     print(f'  exit code: {result.exitcode}', file = sys.stderr)
-    print(f'  stdout: {result.stdout}', file = sys.stderr)
-    print(f'  stderr: {result.stderr}', file = sys.stderr)
+    print(f'  stdout: {result.stdout!r}', file = sys.stderr)
+    print(f'  stderr: {result.stderr!r}', file = sys.stderr)
     print(f'[ERR]: Recorded:', file = sys.stderr)
     print(f'  exit code: {recorded.exitcode}', file = sys.stderr)
-    print(f'  stdout: {recorded.stdout}', file = sys.stderr)
-    print(f'  stderr: {recorded.stderr}', file = sys.stderr)
+    print(f'  stdout: {recorded.stdout!r}', file = sys.stderr)
+    print(f'  stderr: {recorded.stderr!r}', file = sys.stderr)
     sys.exit(1)
 
 if __name__ == '__main__':
@@ -151,7 +153,7 @@ if __name__ == '__main__':
     i += 1
 
   print("[INFO]: Building CleoQua..")
-  subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True)
+  subprocess.Popen(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], stdout = subprocess.PIPE, stderr = subprocess.PIPE).communicate()
   print()
 
   for root, _, files in os.walk(test_dir):
