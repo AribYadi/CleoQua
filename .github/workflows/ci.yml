@@ -14,10 +14,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v2
-      - name: Install Pypy
-        uses: actions/setup-python@v3
-        with:
-          python-version: 'pypy-3.9'
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
@@ -33,11 +29,14 @@ jobs:
         name: Run `test.py` on arm64
         with:
           arch: aarch64
-          distro: ubuntu18.04
+          distro: ubuntu-latest
           githubToken: ${{ github.token }}
+          install: |
+            wget https://downloads.python.org/pypy/pypy3.9-v7.3.9-aarch64.tar.bz2
+            tar fvx pypy3.9-v7.3.9-aarch64.tar.bz2
           run: |
-            pypy3 test.py tests
-            pypy3 test.py examples
+            ./pypy3.9-v7.3.9-aarch64/bin/pypy3 test.py tests
+            ./pypy3.9-v7.3.9-aarch64/bin/pypy3 test.py examples
 
   check-fmt:
     name: Check Formatting
