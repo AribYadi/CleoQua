@@ -136,6 +136,7 @@ if __name__ == '__main__':
 
   for root, _, files in os.walk(test_dir):
     for file in filter(lambda path: path.endswith(CLEOQUA_EXT), files):
+      file = os.path.join(root, file)
       if update:
         update_file(file)
       else:
