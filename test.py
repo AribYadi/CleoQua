@@ -104,9 +104,9 @@ def test_file(path: str):
   subprocess.run(['./cleoqua', path], capture_output = True)
   subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
   subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  result = subprocess.run([exe_path], capture_output = True)
+  proc = subprocess.run([exe_path], capture_output = True)
 
-  result = TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n'))
+  result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
 
   if recorded == result:
     print(f'[INFO]: `{path}` matched its recorded output.');
@@ -114,12 +114,12 @@ def test_file(path: str):
     print(f'[ERR]: Output of `{path}` does not match its recorded output!', file = sys.stderr)
     print(f'[ERR]: Output:', file = sys.stderr)
     print(f'  exit code: {result.exitcode}', file = sys.stderr)
-    print(f'  stdout: {result.stdout}', file = sys.stderr)
-    print(f'  stderr: {result.stderr}', file = sys.stderr)
+    print(f'  stdout: {result.stdout!r}', file = sys.stderr)
+    print(f'  stderr: {result.stderr!r}', file = sys.stderr)
     print(f'[ERR]: Recorded:', file = sys.stderr)
     print(f'  exit code: {recorded.exitcode}', file = sys.stderr)
-    print(f'  stdout: {recorded.stdout}', file = sys.stderr)
-    print(f'  stderr: {recorded.stderr}', file = sys.stderr)
+    print(f'  stdout: {recorded.stdout!r}', file = sys.stderr)
+    print(f'  stderr: {recorded.stderr!r}', file = sys.stderr)
     sys.exit(1)
 
 if __name__ == '__main__':
