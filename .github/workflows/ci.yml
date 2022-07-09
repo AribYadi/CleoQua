@@ -29,10 +29,15 @@ jobs:
         run: rustc -o cleoqua cleoqua.rs
       - name: Clippy
         run: clippy-driver -D warnings cleoqua.rs
-      - name: Run `test.py`
-        run: |
-          pypy ./test.py ./tests
-          pypy ./test.py ./examples
+      - uses: uraimo/run-on-arch-action@v2
+        name: Run `test.py` on arm64
+        with:
+          arch: aarch64
+          distro: ubuntu18.04
+          githubToken: ${{ github.token }}
+          run: |
+            pypy3 test.py tests
+            pypy3 test.py examples
 
   check-fmt:
     name: Check Formatting
