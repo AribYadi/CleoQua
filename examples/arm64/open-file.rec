@@ -1,0 +1,9 @@
+:exitcode 0:
+:stdout 18:
+I'm from a file!
+
+
+:end:
+:stderr 0:
+
+:end:

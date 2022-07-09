@@ -9,6 +9,8 @@ use std::{
   process,
 };
 
+// TODO: write more tests
+
 #[derive(Debug, Clone)]
 enum TokenType {
   Int,
@@ -73,7 +75,9 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
   fn is_int(s: &str) -> bool {
     let mut chars = s.chars().peekable();
 
-    while let Some('-') = chars.peek() { chars.next(); }
+    while let Some('-') = chars.peek() {
+      chars.next();
+    }
 
     for ch in chars {
       if let '0'..='9' = ch {

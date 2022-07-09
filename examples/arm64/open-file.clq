@@ -1,0 +1,16 @@
+# open file
+56 -100 "./examples/arm64/open-file.txt" ! 0 438 syscall4
+if _ 0 < do
+  64 2 "Run this binary from cleoqua's project root!" syscall3 !
+  mem 10 ^
+  64 2 mem 1 syscall3 !
+  93 1 syscall1 !
+end
+
+# print file
+63 over mem 1024 syscall3
+64 <-> 1 <-> mem <-> syscall3 !
+
+# close file
+57 <-> syscall1 !
+

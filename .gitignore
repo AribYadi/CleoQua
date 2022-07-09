@@ -2,4 +2,5 @@ cleoqua
 *.S
 *.o
 hello-world
+open-file
 
