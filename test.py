@@ -76,10 +76,10 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  subprocess.run(['./cleoqua', path], capture_output = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  result = subprocess.run([exe_path], capture_output = True)
+  subprocess.run(['./cleoqua', path], capture_output = True, shell = True)
+  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True, shell = True)
+  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True, shell = True)
+  result = subprocess.run([exe_path], capture_output = True, shell = True)
 
   TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
 
@@ -99,10 +99,10 @@ def test_file(path: str):
     print(f'[WARN]: Record path for `{path}` not found. Skipping.')
     return
 
-  subprocess.run(['./cleoqua', path], capture_output = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  result = subprocess.run([exe_path], capture_output = True)
+  subprocess.run(['./cleoqua', path], capture_output = True, shell = True)
+  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True, shell = True)
+  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True, shell = True)
+  result = subprocess.run([exe_path], capture_output = True, shell = True)
 
   result = TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n'))
 
@@ -146,9 +146,7 @@ if __name__ == '__main__':
     i += 1
 
   print("[INFO]: Building CleoQua..")
-  subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True)
-  while not os.path.exists('cleoqua'):
-      pass
+  subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True, shell = True)
   print()
 
   for root, _, files in os.walk(test_dir):
