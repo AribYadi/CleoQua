@@ -33,7 +33,7 @@ jobs:
           githubToken: ${{ github.token }}
           install: |
             apt-get update -q -y
-            apt-get install -q -y wget tar
+            apt-get install -q -y wget tar bzip2
             wget -q https://downloads.python.org/pypy/pypy3.9-v7.3.9-aarch64.tar.bz2
             tar fvx pypy3.9-v7.3.9-aarch64.tar.bz2
           run: |
