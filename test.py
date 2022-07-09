@@ -11,6 +11,8 @@ REC_EXT='.rec'
 
 END_TAG='\n:end:\n'
 
+BASE_DIR=os.path.dirname(__file__)
+
 @dataclass
 class TestCase():
   exitcode: int
@@ -76,10 +78,10 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  subprocess.run(['./cleoqua', path], capture_output = True, shell = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True, shell = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True, shell = True)
-  result = subprocess.run([exe_path], capture_output = True, shell = True)
+  subprocess.run(['./cleoqua', path], capture_output = True)
+  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
+  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
+  result = subprocess.run([exe_path], capture_output = True)
 
   TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
 
@@ -99,10 +101,10 @@ def test_file(path: str):
     print(f'[WARN]: Record path for `{path}` not found. Skipping.')
     return
 
-  subprocess.run(['./cleoqua', path], capture_output = True, shell = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True, shell = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True, shell = True)
-  result = subprocess.run([exe_path], capture_output = True, shell = True)
+  subprocess.run(['./cleoqua', path], capture_output = True)
+  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
+  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
+  result = subprocess.run([exe_path], capture_output = True)
 
   result = TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n'))
 
@@ -121,6 +123,8 @@ def test_file(path: str):
     sys.exit(1)
 
 if __name__ == '__main__':
+  os.chdir(BASE_DIR)
+
   test_dir = './tests'
   update = False
 
@@ -147,12 +151,12 @@ if __name__ == '__main__':
     i += 1
 
   print("[INFO]: Building CleoQua..")
-  subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True, shell = True)
+  subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True)
   print()
 
   for root, _, files in os.walk(test_dir):
     for file in filter(lambda path: path.endswith(CLEOQUA_EXT), files):
-      file = os.path.join(root, file)
+      file = os.path.join(BASE_DIR, root, file)
       if update:
         update_file(file)
       else:
