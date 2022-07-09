@@ -29,7 +29,7 @@ jobs:
         name: Run `test.py` on arm64
         with:
           arch: aarch64
-          distro: ubuntu-latest
+          distro: ubuntu_latest
           githubToken: ${{ github.token }}
           install: |
             wget https://downloads.python.org/pypy/pypy3.9-v7.3.9-aarch64.tar.bz2
