@@ -27,15 +27,12 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Build
         run: rustc -o cleoqua cleoqua.rs
-        shell: bash
       - name: Clippy
         run: clippy-driver -D warnings cleoqua.rs
-        shell: bash
       - name: Run `test.py`
         run: |
           pypy ./test.py ./tests
           pypy ./test.py ./examples
-        shell: bash
 
   check-fmt:
     name: Check Formatting
@@ -51,4 +48,3 @@ jobs:
       - uses: Swatinem/rust-cache@v1
       - name: Check Formatting
         run: rustfmt --check cleoqua.rs
-        shell: bash

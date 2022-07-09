@@ -77,14 +77,8 @@ def update_file(path: str):
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
   subprocess.run(['./cleoqua', path], capture_output = True)
-  while not os.path.exists(asm_path):
-      pass
   subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  while not os.path.exists(obj_path):
-      pass
   subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  while not os.path.exists(exe_path):
-      pass
   result = subprocess.run([exe_path], capture_output = True)
 
   TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
@@ -106,14 +100,8 @@ def test_file(path: str):
     return
 
   subprocess.run(['./cleoqua', path], capture_output = True)
-  while not os.path.exists(asm_path):
-      pass
   subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  while not os.path.exists(obj_path):
-      pass
   subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  while not os.path.exists(exe_path):
-      pass
   result = subprocess.run([exe_path], capture_output = True)
 
   result = TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n'))
