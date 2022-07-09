@@ -484,7 +484,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
   let _ = writeln!(s, ".data");
   for (i, str_) in strs.iter().enumerate() {
-    let _ = writeln!(s, "  str_{i}: .ascii \"{str_}\"");
+    let _ = writeln!(s, "  str_{i}: .ascii \"{str_}\\0\"");
   }
 
   if !block_stack.is_empty() {
