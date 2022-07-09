@@ -118,6 +118,7 @@ def test_file(path: str):
     print(f'  exit code: {recorded.exitcode}', file = sys.stderr)
     print(f'  stdout: {recorded.stdout}', file = sys.stderr)
     print(f'  stderr: {recorded.stderr}', file = sys.stderr)
+    sys.exit(1)
 
 if __name__ == '__main__':
   test_dir = './tests'

@@ -18,13 +18,13 @@ jobs:
         uses: actions/setup-python@v3
         with:
           python-version: 'pypy-3.9'
+      - uses: Swatinem/rust-cache@v1
       - uses: actions-rs/toolchain@v1
         with:
           profile: minimal
           toolchain: stable
           override: true
           components: clippy
-      - uses: Swatinem/rust-cache@v1
       - name: Build
         run: rustc -o cleoqua cleoqua.rs
       - name: Clippy
