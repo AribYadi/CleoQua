@@ -39,6 +39,9 @@ enum TokenType {
   Do,
   Else,
   End,
+
+  Macro,
+  MacroName,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +59,7 @@ macro_rules! err {
     eprint!("{}:{}:{}: [ERR]: ", $origin, $row + 1, $col + 1);
     eprintln!($($msg)*);
   };
-  ($tok:ident, $($msg:tt)*) => {
+  ($tok:path, $($msg:tt)*) => {
     err!($tok.origin, $tok.row, $tok.col, $($msg)*);
   };
 }
@@ -66,7 +69,7 @@ macro_rules! note {
     eprint!("{}:{}:{}: [NOTE]: ", $origin, $row + 1, $col + 1);
     eprintln!($($msg)*);
   };
-  ($tok:ident, $($msg:tt)*) => {
+  ($tok:path, $($msg:tt)*) => {
     note!($tok.origin, $tok.row, $tok.col, $($msg)*);
   };
 }
@@ -211,8 +214,17 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "else" => TokenType::Else,
         "end" => TokenType::End,
 
+        "macro" => TokenType::Macro,
+        _ if lexeme.len() > 1 && &lexeme[lexeme.len() - 1..] == "!" => TokenType::MacroName,
+
         _ => {
           err!(origin, row, start, "Unknown token `{lexeme}`!");
+          note!(
+            origin,
+            row,
+            start,
+            "Maybe you wanted to write macro name `{lexeme}!`?"
+          );
           process::exit(1);
         },
       };
@@ -231,6 +243,99 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
   }
 
   tokens
+}
+
+struct Macro {
+  token: Token,
+  body: Vec<Token>,
+  expanded_count: usize,
+}
+
+fn process_macros(tokens: Vec<Token>) -> Vec<Token> {
+  let mut tokens = tokens.into_iter();
+  let mut out = Vec::new();
+  let mut macros: Vec<Macro> = Vec::new();
+
+  while let Some(token) = tokens.next() {
+    match token.type_ {
+      TokenType::Macro => {
+        let token = match tokens.next() {
+          Some(
+            token @ Token {
+              type_: TokenType::MacroName,
+              ..
+            },
+          ) => {
+            if let Some(Macro {
+              token: macro_token, ..
+            }) = macros
+              .iter()
+              .find(|macro_| macro_.token.lexeme == token.lexeme)
+            {
+              err!(token, "Macro with name `{}` already exists!", token.lexeme);
+              note!(macro_token, "`{}` was defined here.", token.lexeme);
+              process::exit(1);
+            }
+            token
+          },
+          Some(token) => {
+            err!(token, "Macro names must end with `!`!");
+            note!(token, "Maybe you wanted to write `{}!`?", token.lexeme);
+            process::exit(1);
+          },
+          None => {
+            err!(token, "Expected macro name after `macro`!");
+            process::exit(1);
+          },
+        };
+        match tokens.next() {
+          Some(Token {
+            type_: TokenType::Do,
+            ..
+          }) => (),
+          _ => {
+            err!(token, "Expected `do` after macro name!");
+            process::exit(1);
+          },
+        }
+
+        let mut body = Vec::new();
+        let mut block_depth = 0;
+        while let Some(token) = tokens.next() {
+          match token.type_ {
+            TokenType::End if block_depth == 0 => break,
+            TokenType::End => block_depth -= 1,
+            TokenType::Do => block_depth += 1,
+            _ => (),
+          }
+          body.push(token);
+        }
+
+        macros.push(Macro {
+          token,
+          body,
+          expanded_count: 0,
+        });
+      },
+      TokenType::MacroName => {
+        let macro_ = match macros
+          .iter_mut()
+          .find(|macro_| macro_.token.lexeme == token.lexeme)
+        {
+          Some(macro_) => macro_,
+          None => {
+            err!(token, "No macro with name `{}`!", token.lexeme);
+            process::exit(1);
+          },
+        };
+        macro_.expanded_count += 1;
+        out.extend(macro_.body.clone());
+      },
+      _ => out.push(token),
+    }
+  }
+
+  out
 }
 
 const MEM_LENGTH: usize = 480_000;
@@ -509,6 +614,8 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
         let _ = writeln!(s, "jmp_{jmp_count}:");
       },
+
+      TokenType::Macro | TokenType::MacroName => unreachable!(),
     }
   }
 
@@ -589,6 +696,7 @@ fn main() {
   };
 
   let tokens = lex(&file, &file_contents);
+  let tokens = process_macros(tokens);
   let asm = compile_to_arm64_asm(tokens);
 
   let mut asm_path = file[..file.len() - 4].to_string();
