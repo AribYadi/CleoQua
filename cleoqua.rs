@@ -257,7 +257,7 @@ struct Macro {
   expanded_count: usize,
 }
 
-fn process_macros(load_dirs: Vec<String>, tokens: Vec<Token>) -> Vec<Token> {
+fn process_macros(load_dirs: Vec<String>, expand_lim: usize, tokens: Vec<Token>) -> Vec<Token> {
   let mut tokens: Box<dyn Iterator<Item = Token>> = Box::new(tokens.into_iter());
   let mut out = Vec::new();
 
@@ -333,6 +333,17 @@ fn process_macros(load_dirs: Vec<String>, tokens: Vec<Token>) -> Vec<Token> {
           .iter_mut()
           .find(|macro_| macro_.token.lexeme == token.lexeme)
         {
+          Some(macro_) if macro_.expanded_count >= expand_lim => {
+            err!(
+              token.origin,
+              token.row,
+              token.col,
+              "Macro `{}` has been expanded {} times which is over the expand limit ({expand_lim})!",
+              token.lexeme,
+              macro_.expanded_count
+            );
+            process::exit(1);
+          },
           Some(macro_) => macro_,
           None => {
             err!(token, "No macro with name `{}`!", token.lexeme);
@@ -340,7 +351,7 @@ fn process_macros(load_dirs: Vec<String>, tokens: Vec<Token>) -> Vec<Token> {
           },
         };
         macro_.expanded_count += 1;
-        out.extend(macro_.body.clone());
+        tokens = Box::new(tokens.chain(macro_.body.clone().into_iter()));
       },
 
       TokenType::Load => {
@@ -693,15 +704,23 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   s
 }
 
+const DEF_EXPAND_LIM: usize = 1000;
+
 fn usage() {
   println!("[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq");
   println!("[INFO]: OPTIONS:");
-  println!("[INFO]:   --help, -h: Prints this help message.");
+  println!("[INFO]:   --help,         -h: Prints this help message.");
+  println!(
+    "[INFO]:   --expand-limit, -e: Set the expand limit for macros. Default is {DEF_EXPAND_LIM}."
+  );
 }
 
 fn main() {
   let mut file = None;
-  for arg in env::args().skip(1) {
+  let mut expand_lim = DEF_EXPAND_LIM;
+
+  let mut args = env::args().skip(1);
+  while let Some(arg) = args.next() {
     if &arg[0..1] == "-" {
       let mut arg = &arg[1..];
       if &arg[0..1] == "-" {
@@ -712,6 +731,22 @@ fn main() {
         "help" | "h" => {
           usage();
           process::exit(0);
+        },
+        "expand-limit" | "e" => {
+          let lim = match args.next() {
+            Some(lim) => match lim.parse() {
+              Ok(lim) => lim,
+              Err(_) => {
+                eprintln!("[ERR]: Expected expand limit to be an integer.");
+                process::exit(1);
+              },
+            },
+            None => {
+              eprintln!("[ERR]: Expected expand limit.");
+              process::exit(1);
+            },
+          };
+          expand_lim = lim;
         },
         _ => {
           usage();
@@ -754,7 +789,7 @@ fn main() {
   let load_dirs = vec![file_dir.to_string_lossy().to_string(), "./".to_string()];
 
   let tokens = lex(&file, &file_contents);
-  let tokens = process_macros(load_dirs, tokens);
+  let tokens = process_macros(load_dirs, expand_lim, tokens);
   let asm = compile_to_arm64_asm(tokens);
 
   let mut asm_path = file[..file.len() - 4].to_string();
