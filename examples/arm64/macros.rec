@@ -1,7 +1,7 @@
 :exitcode 0:
-:stdout 10:
-James
+:stdout 5:
 Bob
+
 
 :end:
 :stderr 0:

@@ -1,0 +1,8 @@
+:exitcode 1:
+:stdout 0:
+
+:end:
+:stderr 119:
+tests/recursive-macro.clq:2:2: [ERR]: Macro `foo!` has been expanded 1000 times which is over the expand limit (1000)!
+
+:end:
