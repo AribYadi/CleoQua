@@ -318,7 +318,7 @@ fn process_macros(
 
         let mut body = Vec::new();
         let mut block_depth = 0;
-        while let Some(token) = tokens.next() {
+        for token in tokens.by_ref() {
           match token.type_ {
             TokenType::End if block_depth == 0 => break,
             TokenType::End => block_depth -= 1,
@@ -377,14 +377,14 @@ fn process_macros(
           },
         };
 
-        if loadeds.iter().find(|path| path as &str == file).is_some() {
+        if loadeds.iter().any(|path| path as &str == file) {
           continue;
         }
 
         let mut file_contents = String::new();
         let mut loaded = false;
         for load_dir in load_dirs.iter() {
-          let _ = match File::open(Path::new(&load_dir).join(&file)) {
+          match File::open(Path::new(&load_dir).join(&file)) {
             Ok(mut f) => {
               let _ = f.read_to_string(&mut file_contents);
               loaded = true;
@@ -393,7 +393,7 @@ fn process_macros(
             Err(_) => {
               continue;
             },
-          };
+          }
         }
 
         if !loaded {
