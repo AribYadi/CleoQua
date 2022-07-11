@@ -6,6 +6,10 @@ use std::{
     Read,
     Write as _,
   },
+  path::{
+    Path,
+    PathBuf,
+  },
   process,
 };
 
@@ -27,8 +31,8 @@ enum TokenType {
   Swap,
 
   Mem,
-  Load,
-  Store,
+  Read,
+  Write,
   Syscall,
 
   PutD,
@@ -42,6 +46,7 @@ enum TokenType {
 
   Macro,
   MacroName,
+  Load,
 }
 
 #[derive(Debug, Clone)]
@@ -200,8 +205,8 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "<->" => TokenType::Swap,
 
         "mem" => TokenType::Mem,
-        "v" => TokenType::Load,
-        "^" => TokenType::Store,
+        "v" => TokenType::Read,
+        "^" => TokenType::Write,
         "syscall0" | "syscall1" | "syscall2" | "syscall3" | "syscall4" | "syscall5"
         | "syscall6" => TokenType::Syscall,
 
@@ -215,6 +220,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "end" => TokenType::End,
 
         "macro" => TokenType::Macro,
+        "load!" => TokenType::Load,
         _ if lexeme.len() > 1 && &lexeme[lexeme.len() - 1..] == "!" => TokenType::MacroName,
 
         _ => {
@@ -251,9 +257,10 @@ struct Macro {
   expanded_count: usize,
 }
 
-fn process_macros(tokens: Vec<Token>) -> Vec<Token> {
-  let mut tokens = tokens.into_iter();
+fn process_macros(load_dirs: Vec<String>, tokens: Vec<Token>) -> Vec<Token> {
+  let mut tokens: Box<dyn Iterator<Item = Token>> = Box::new(tokens.into_iter());
   let mut out = Vec::new();
+
   let mut macros: Vec<Macro> = Vec::new();
 
   while let Some(token) = tokens.next() {
@@ -274,6 +281,10 @@ fn process_macros(tokens: Vec<Token>) -> Vec<Token> {
             {
               err!(token, "Macro with name `{}` already exists!", token.lexeme);
               note!(macro_token, "`{}` was defined here.", token.lexeme);
+              process::exit(1);
+            }
+            if token.lexeme == "load!" {
+              err!(token, "Macro with name `{}` is used!", token.lexeme);
               process::exit(1);
             }
             token
@@ -331,6 +342,48 @@ fn process_macros(tokens: Vec<Token>) -> Vec<Token> {
         macro_.expanded_count += 1;
         out.extend(macro_.body.clone());
       },
+
+      TokenType::Load => {
+        let file = match tokens.next() {
+          Some(Token {
+            type_: TokenType::Str,
+            lexeme,
+            ..
+          }) => lexeme[1..lexeme.len() - 1].to_string(),
+          Some(token) => {
+            err!(token, "`load!`'s value must be a string!");
+            process::exit(1);
+          },
+          None => {
+            err!(token, "Expected file path!");
+            process::exit(1);
+          },
+        };
+
+        let mut file_contents = String::new();
+        let mut loaded = false;
+        for load_dir in load_dirs.iter() {
+          let _ = match File::open(Path::new(&load_dir).join(&file)) {
+            Ok(mut f) => {
+              let _ = f.read_to_string(&mut file_contents);
+              loaded = true;
+              break;
+            },
+            Err(_) => {
+              continue;
+            },
+          };
+        }
+
+        if !loaded {
+          err!(token, "Cannot open file path `{file}`!");
+          process::exit(1);
+        }
+
+        let loaded_tokens = lex(&file, &file_contents);
+        tokens = Box::new(tokens.chain(loaded_tokens.into_iter()));
+      },
+
       _ => out.push(token),
     }
   }
@@ -485,14 +538,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
-      TokenType::Load => {
+      TokenType::Read => {
         let _ = writeln!(s, "  // <-- load -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  ldr x0, [x0]");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
-      TokenType::Store => {
+      TokenType::Write => {
         let _ = writeln!(s, "  // <-- store -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  ldr x1, [x28], #8");
@@ -615,7 +668,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "jmp_{jmp_count}:");
       },
 
-      TokenType::Macro | TokenType::MacroName => unreachable!(),
+      TokenType::Macro | TokenType::MacroName | TokenType::Load => unreachable!(),
     }
   }
 
@@ -695,8 +748,13 @@ fn main() {
     },
   };
 
+  let mut file_dir = PathBuf::from(&file);
+  file_dir.pop();
+
+  let load_dirs = vec![file_dir.to_string_lossy().to_string(), "./".to_string()];
+
   let tokens = lex(&file, &file_contents);
-  let tokens = process_macros(tokens);
+  let tokens = process_macros(load_dirs, tokens);
   let asm = compile_to_arm64_asm(tokens);
 
   let mut asm_path = file[..file.len() - 4].to_string();
