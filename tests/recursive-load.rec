@@ -1,6 +1,6 @@
 :exitcode 0:
-:stdout 10:
-HelloHello
+:stdout 5:
+Hello
 :end:
 :stderr 0:
 

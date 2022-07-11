@@ -13,7 +13,7 @@ use std::{
   process,
 };
 
-// TODO: write more tests
+// TODO: write more tests and examples
 
 #[derive(Debug, Clone)]
 enum TokenType {
@@ -257,12 +257,17 @@ struct Macro {
   expanded_count: usize,
 }
 
-fn process_macros(load_dirs: Vec<String>, expand_lim: usize, tokens: Vec<Token>) -> Vec<Token> {
+fn process_macros(
+  cur_file: &str,
+  load_dirs: Vec<String>,
+  expand_lim: usize,
+  tokens: Vec<Token>,
+) -> Vec<Token> {
   let mut tokens: Box<dyn Iterator<Item = Token>> = Box::new(tokens.into_iter());
   let mut out = Vec::new();
 
   let mut macros: Vec<Macro> = Vec::new();
-  let mut loadeds: Vec<String> = Vec::new();
+  let mut loadeds: Vec<String> = vec![cur_file.to_string(), ["./", cur_file].concat()];
 
   while let Some(token) = tokens.next() {
     match token.type_ {
@@ -790,12 +795,15 @@ fn main() {
   };
 
   let mut file_dir = PathBuf::from(&file);
+  let file_name = file_dir.clone();
+  let file_name = file_name.file_name().unwrap().to_string_lossy();
+
   file_dir.pop();
 
   let load_dirs = vec![file_dir.to_string_lossy().to_string(), "./".to_string()];
 
   let tokens = lex(&file, &file_contents);
-  let tokens = process_macros(load_dirs, expand_lim, tokens);
+  let tokens = process_macros(&file_name, load_dirs, expand_lim, tokens);
   let asm = compile_to_arm64_asm(tokens);
 
   let mut asm_path = file[..file.len() - 4].to_string();
