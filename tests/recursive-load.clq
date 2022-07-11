@@ -1,0 +1,4 @@
+load! "recursive-load.clq"
+
+64 1 "Hello" syscall3
+

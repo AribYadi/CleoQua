@@ -6,10 +6,14 @@ use std::{
     Read,
     Write as _,
   },
+  path::{
+    Path,
+    PathBuf,
+  },
   process,
 };
 
-// TODO: write more tests
+// TODO: write more tests and examples
 
 #[derive(Debug, Clone)]
 enum TokenType {
@@ -27,8 +31,8 @@ enum TokenType {
   Swap,
 
   Mem,
-  Load,
-  Store,
+  Read,
+  Write,
   Syscall,
 
   PutD,
@@ -39,6 +43,10 @@ enum TokenType {
   Do,
   Else,
   End,
+
+  Macro,
+  MacroName,
+  Load,
 }
 
 #[derive(Debug, Clone)]
@@ -56,7 +64,7 @@ macro_rules! err {
     eprint!("{}:{}:{}: [ERR]: ", $origin, $row + 1, $col + 1);
     eprintln!($($msg)*);
   };
-  ($tok:ident, $($msg:tt)*) => {
+  ($tok:path, $($msg:tt)*) => {
     err!($tok.origin, $tok.row, $tok.col, $($msg)*);
   };
 }
@@ -66,7 +74,7 @@ macro_rules! note {
     eprint!("{}:{}:{}: [NOTE]: ", $origin, $row + 1, $col + 1);
     eprintln!($($msg)*);
   };
-  ($tok:ident, $($msg:tt)*) => {
+  ($tok:path, $($msg:tt)*) => {
     note!($tok.origin, $tok.row, $tok.col, $($msg)*);
   };
 }
@@ -197,8 +205,8 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "<->" => TokenType::Swap,
 
         "mem" => TokenType::Mem,
-        "v" => TokenType::Load,
-        "^" => TokenType::Store,
+        "v" => TokenType::Read,
+        "^" => TokenType::Write,
         "syscall0" | "syscall1" | "syscall2" | "syscall3" | "syscall4" | "syscall5"
         | "syscall6" => TokenType::Syscall,
 
@@ -211,8 +219,18 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "else" => TokenType::Else,
         "end" => TokenType::End,
 
+        "macro" => TokenType::Macro,
+        "load!" => TokenType::Load,
+        _ if lexeme.len() > 1 && &lexeme[lexeme.len() - 1..] == "!" => TokenType::MacroName,
+
         _ => {
           err!(origin, row, start, "Unknown token `{lexeme}`!");
+          note!(
+            origin,
+            row,
+            start,
+            "Maybe you wanted to write macro name `{lexeme}!`?"
+          );
           process::exit(1);
         },
       };
@@ -231,6 +249,168 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
   }
 
   tokens
+}
+
+struct Macro {
+  token: Token,
+  body: Vec<Token>,
+  expanded_count: usize,
+}
+
+fn process_macros(
+  cur_file: &str,
+  load_dirs: Vec<String>,
+  expand_lim: usize,
+  tokens: Vec<Token>,
+) -> Vec<Token> {
+  let mut tokens: Box<dyn Iterator<Item = Token>> = Box::new(tokens.into_iter());
+  let mut out = Vec::new();
+
+  let mut macros: Vec<Macro> = Vec::new();
+  let mut loadeds: Vec<String> = vec![cur_file.to_string(), ["./", cur_file].concat()];
+
+  while let Some(token) = tokens.next() {
+    match token.type_ {
+      TokenType::Macro => {
+        let token = match tokens.next() {
+          Some(
+            token @ Token {
+              type_: TokenType::MacroName,
+              ..
+            },
+          ) => {
+            if let Some(Macro {
+              token: macro_token, ..
+            }) = macros
+              .iter()
+              .find(|macro_| macro_.token.lexeme == token.lexeme)
+            {
+              err!(token, "Macro with name `{}` already exists!", token.lexeme);
+              note!(macro_token, "`{}` was defined here.", token.lexeme);
+              process::exit(1);
+            }
+            if token.lexeme == "load!" {
+              err!(token, "Macro with name `{}` is used!", token.lexeme);
+              process::exit(1);
+            }
+            token
+          },
+          Some(token) => {
+            err!(token, "Macro names must end with `!`!");
+            note!(token, "Maybe you wanted to write `{}!`?", token.lexeme);
+            process::exit(1);
+          },
+          None => {
+            err!(token, "Expected macro name after `macro`!");
+            process::exit(1);
+          },
+        };
+        match tokens.next() {
+          Some(Token {
+            type_: TokenType::Do,
+            ..
+          }) => (),
+          _ => {
+            err!(token, "Expected `do` after macro name!");
+            process::exit(1);
+          },
+        }
+
+        let mut body = Vec::new();
+        let mut block_depth = 0;
+        for token in tokens.by_ref() {
+          match token.type_ {
+            TokenType::End if block_depth == 0 => break,
+            TokenType::End => block_depth -= 1,
+            TokenType::Do => block_depth += 1,
+            _ => (),
+          }
+          body.push(token);
+        }
+
+        macros.push(Macro {
+          token,
+          body,
+          expanded_count: 0,
+        });
+      },
+      TokenType::MacroName => {
+        let macro_ = match macros
+          .iter_mut()
+          .find(|macro_| macro_.token.lexeme == token.lexeme)
+        {
+          Some(macro_) if macro_.expanded_count >= expand_lim => {
+            err!(
+              token.origin,
+              token.row,
+              token.col,
+              "Macro `{}` has been expanded {} times which is over the expand limit ({expand_lim})!",
+              token.lexeme,
+              macro_.expanded_count
+            );
+            process::exit(1);
+          },
+          Some(macro_) => macro_,
+          None => {
+            err!(token, "No macro with name `{}`!", token.lexeme);
+            process::exit(1);
+          },
+        };
+        macro_.expanded_count += 1;
+        tokens = Box::new(tokens.chain(macro_.body.clone().into_iter()));
+      },
+
+      TokenType::Load => {
+        let file = match tokens.next() {
+          Some(Token {
+            type_: TokenType::Str,
+            lexeme,
+            ..
+          }) => lexeme[1..lexeme.len() - 1].to_string(),
+          Some(token) => {
+            err!(token, "`load!`'s value must be a string!");
+            process::exit(1);
+          },
+          None => {
+            err!(token, "Expected file path!");
+            process::exit(1);
+          },
+        };
+
+        if loadeds.iter().any(|path| path as &str == file) {
+          continue;
+        }
+
+        let mut file_contents = String::new();
+        let mut loaded = false;
+        for load_dir in load_dirs.iter() {
+          match File::open(Path::new(&load_dir).join(&file)) {
+            Ok(mut f) => {
+              let _ = f.read_to_string(&mut file_contents);
+              loaded = true;
+              break;
+            },
+            Err(_) => {
+              continue;
+            },
+          }
+        }
+
+        if !loaded {
+          err!(token, "Cannot open file path `{file}`!");
+          process::exit(1);
+        }
+
+        let loaded_tokens = lex(&file, &file_contents);
+        loadeds.push(file);
+        tokens = Box::new(tokens.chain(loaded_tokens.into_iter()));
+      },
+
+      _ => out.push(token),
+    }
+  }
+
+  out
 }
 
 const MEM_LENGTH: usize = 480_000;
@@ -380,14 +560,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
-      TokenType::Load => {
+      TokenType::Read => {
         let _ = writeln!(s, "  // <-- load -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  ldr x0, [x0]");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
-      TokenType::Store => {
+      TokenType::Write => {
         let _ = writeln!(s, "  // <-- store -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  ldr x1, [x28], #8");
@@ -509,6 +689,8 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
         let _ = writeln!(s, "jmp_{jmp_count}:");
       },
+
+      TokenType::Macro | TokenType::MacroName | TokenType::Load => unreachable!(),
     }
   }
 
@@ -533,15 +715,23 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   s
 }
 
+const DEF_EXPAND_LIM: usize = 1000;
+
 fn usage() {
   println!("[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq");
   println!("[INFO]: OPTIONS:");
-  println!("[INFO]:   --help, -h: Prints this help message.");
+  println!("[INFO]:   --help,         -h: Prints this help message.");
+  println!(
+    "[INFO]:   --expand-limit, -e: Set the expand limit for macros. Default is {DEF_EXPAND_LIM}."
+  );
 }
 
 fn main() {
   let mut file = None;
-  for arg in env::args().skip(1) {
+  let mut expand_lim = DEF_EXPAND_LIM;
+
+  let mut args = env::args().skip(1);
+  while let Some(arg) = args.next() {
     if &arg[0..1] == "-" {
       let mut arg = &arg[1..];
       if &arg[0..1] == "-" {
@@ -552,6 +742,22 @@ fn main() {
         "help" | "h" => {
           usage();
           process::exit(0);
+        },
+        "expand-limit" | "e" => {
+          let lim = match args.next() {
+            Some(lim) => match lim.parse() {
+              Ok(lim) => lim,
+              Err(_) => {
+                eprintln!("[ERR]: Expected expand limit to be an integer.");
+                process::exit(1);
+              },
+            },
+            None => {
+              eprintln!("[ERR]: Expected expand limit.");
+              process::exit(1);
+            },
+          };
+          expand_lim = lim;
         },
         _ => {
           usage();
@@ -588,7 +794,16 @@ fn main() {
     },
   };
 
+  let mut file_dir = PathBuf::from(&file);
+  let file_name = file_dir.clone();
+  let file_name = file_name.file_name().unwrap().to_string_lossy();
+
+  file_dir.pop();
+
+  let load_dirs = vec![file_dir.to_string_lossy().to_string(), "./".to_string()];
+
   let tokens = lex(&file, &file_contents);
+  let tokens = process_macros(&file_name, load_dirs, expand_lim, tokens);
   let asm = compile_to_arm64_asm(tokens);
 
   let mut asm_path = file[..file.len() - 4].to_string();

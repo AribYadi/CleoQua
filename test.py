@@ -11,8 +11,6 @@ REC_EXT='.rec'
 
 END_TAG='\n:end:\n'
 
-BASE_DIR=os.path.dirname(__file__)
-
 @dataclass
 class TestCase():
   exitcode: int
@@ -78,10 +76,13 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  subprocess.run(['./cleoqua', path], capture_output = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  result = subprocess.run([exe_path], capture_output = True)
+  proc = subprocess.run(['./cleoqua', path], capture_output = True)
+  if proc.returncode != 0:
+    result = proc
+  else:
+    subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
+    subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
+    result = subprocess.run([exe_path], capture_output = True)
 
   TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
 
@@ -101,12 +102,15 @@ def test_file(path: str):
     print(f'[WARN]: Record path for `{path}` not found. Skipping.')
     return
 
-  subprocess.run(['./cleoqua', path], capture_output = True)
-  subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
-  subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-  proc = subprocess.run([exe_path], capture_output = True)
+  proc = subprocess.run(['./cleoqua', path], capture_output = True)
+  if proc.returncode != 0:
+    result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
+  else:
+    subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
+    subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
+    proc = subprocess.run([exe_path], capture_output = True)
 
-  result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
+    result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
 
   if recorded == result:
     print(f'[INFO]: `{path}` matched its recorded output.');
@@ -114,12 +118,12 @@ def test_file(path: str):
     print(f'[ERR]: Output of `{path}` does not match its recorded output!', file = sys.stderr)
     print(f'[ERR]: Output:', file = sys.stderr)
     print(f'  exit code: {result.exitcode}', file = sys.stderr)
-    print(f'  stdout: {result.stdout!r}', file = sys.stderr)
-    print(f'  stderr: {result.stderr!r}', file = sys.stderr)
+    print(f'  stdout: \n{result.stdout.decode("utf-8")}', file = sys.stderr)
+    print(f'  stderr: \n{result.stderr.decode("utf-8")}', file = sys.stderr)
     print(f'[ERR]: Recorded:', file = sys.stderr)
     print(f'  exit code: {recorded.exitcode}', file = sys.stderr)
-    print(f'  stdout: {recorded.stdout!r}', file = sys.stderr)
-    print(f'  stderr: {recorded.stderr!r}', file = sys.stderr)
+    print(f'  stdout: \n{recorded.stdout.decode("utf-8")}', file = sys.stderr)
+    print(f'  stderr: \n{recorded.stderr.decode("utf-8")}', file = sys.stderr)
     sys.exit(1)
 
 if __name__ == '__main__':
@@ -154,7 +158,7 @@ if __name__ == '__main__':
 
   for root, _, files in os.walk(test_dir):
     for file in filter(lambda path: path.endswith(CLEOQUA_EXT), files):
-      file = os.path.join(BASE_DIR, root, file)
+      file = os.path.join(root, file)
       if update:
         update_file(file)
       else:

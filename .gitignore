@@ -3,4 +3,10 @@ cleoqua
 *.o
 hello-world
 open-file
+macros
+load1
+load2
+recursive-macro
+recursive-load
+mutually-recursive-macro
 

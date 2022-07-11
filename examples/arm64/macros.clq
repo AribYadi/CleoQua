@@ -1,0 +1,15 @@
+macro name! do
+	if 1 < do
+		"James"
+	else
+		"Bob"
+	end
+end
+
+macro writeln! do
+	syscall3 10 putc
+end
+
+64 1 0 name! writeln!
+64 1 1 name! writeln!
+
