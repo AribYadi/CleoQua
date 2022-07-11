@@ -262,6 +262,7 @@ fn process_macros(load_dirs: Vec<String>, expand_lim: usize, tokens: Vec<Token>)
   let mut out = Vec::new();
 
   let mut macros: Vec<Macro> = Vec::new();
+  let mut loadeds: Vec<String> = Vec::new();
 
   while let Some(token) = tokens.next() {
     match token.type_ {
@@ -371,6 +372,10 @@ fn process_macros(load_dirs: Vec<String>, expand_lim: usize, tokens: Vec<Token>)
           },
         };
 
+        if loadeds.iter().find(|path| path as &str == file).is_some() {
+          continue;
+        }
+
         let mut file_contents = String::new();
         let mut loaded = false;
         for load_dir in load_dirs.iter() {
@@ -392,6 +397,7 @@ fn process_macros(load_dirs: Vec<String>, expand_lim: usize, tokens: Vec<Token>)
         }
 
         let loaded_tokens = lex(&file, &file_contents);
+        loadeds.push(file);
         tokens = Box::new(tokens.chain(loaded_tokens.into_iter()));
       },
 
