@@ -273,18 +273,18 @@ fn process_macros(
   cur_file: &str,
   load_dirs: Vec<String>,
   expand_lim: usize,
-  tokens: Vec<Token>,
+  mut tokens: Vec<Token>,
 ) -> Vec<Token> {
-  let mut tokens: Box<dyn Iterator<Item = Token>> = Box::new(tokens.into_iter());
+  tokens.reverse();
   let mut out = Vec::new();
 
   let mut macros: Vec<Macro> = Vec::new();
   let mut loadeds: Vec<String> = vec![cur_file.to_string(), ["./", cur_file].concat()];
 
-  while let Some(token) = tokens.next() {
+  while let Some(token) = tokens.pop() {
     match token.type_ {
       TokenType::Macro => {
-        let token = match tokens.next() {
+        let token = match tokens.pop() {
           Some(
             token @ Token {
               type_: TokenType::MacroName,
@@ -317,7 +317,7 @@ fn process_macros(
             process::exit(1);
           },
         };
-        match tokens.next() {
+        match tokens.pop() {
           Some(Token {
             type_: TokenType::Do,
             ..
@@ -330,7 +330,7 @@ fn process_macros(
 
         let mut body = Vec::new();
         let mut block_depth = 0;
-        for token in tokens.by_ref() {
+        while let Some(token) = tokens.pop() {
           match token.type_ {
             TokenType::End if block_depth == 0 => break,
             TokenType::End => block_depth -= 1,
@@ -369,11 +369,11 @@ fn process_macros(
           },
         };
         macro_.expanded_count += 1;
-        tokens = Box::new(tokens.chain(macro_.body.clone().into_iter()));
+        tokens.extend(macro_.body.clone().into_iter().rev());
       },
 
       TokenType::Load => {
-        let file = match tokens.next() {
+        let file = match tokens.pop() {
           Some(Token {
             type_: TokenType::Str,
             lexeme,
@@ -415,7 +415,7 @@ fn process_macros(
 
         let loaded_tokens = lex(&file, &file_contents);
         loadeds.push(file);
-        tokens = Box::new(tokens.chain(loaded_tokens.into_iter()));
+        tokens.extend(loaded_tokens.into_iter().rev());
       },
 
       _ => out.push(token),
