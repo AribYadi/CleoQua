@@ -26,6 +26,7 @@ enum TokenType {
   LessThan,
 
   ShiftLeft,
+  ShiftRight,
   BitwiseOr,
   BitwiseAnd,
 
@@ -204,6 +205,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "<" => TokenType::LessThan,
 
         "<<" => TokenType::ShiftLeft,
+        ">>" => TokenType::ShiftRight,
         "|" => TokenType::BitwiseOr,
         "&" => TokenType::BitwiseAnd,
 
@@ -539,6 +541,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  ldr x1, [x28], #8");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  lsl x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::ShiftRight => {
+        let _ = writeln!(s, "  // <-- shift right -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  lsr x0, x0, x1");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },

@@ -2,6 +2,10 @@
 2 2 << putd
 10 putc
 
+# Shift Right
+8 2 >> putd
+10 putc
+
 # Bitwise Or
 2 4 | putd
 10 putc
