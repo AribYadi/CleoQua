@@ -1,0 +1,42 @@
+# To prove Turing Completeness, we are going to implement Rule110 in CleoQua
+# To learn more about Rule 110, see:
+#   http://en.wikipedia.org/wiki/Rule_110
+# This example is based on my Rule110 implementation in Rust.
+#   https://gist.github.com/AribYadi/52a4d09eb52f42656bb01cba9255b036
+
+macro BOARD_SIZE! do 30 end
+
+macro chars! do mem end
+macro board! do chars! 2 + end
+macro buf!   do board! BOARD_SIZE! + end
+
+chars! 0 + ' ' ^
+chars! 1 + '#' ^
+
+buf! BOARD_SIZE! + 10 ^
+
+# Initialize initial board state
+board! BOARD_SIZE! + 2 - 1 ^
+
+# Run the automaton
+0 while _ BOARD_SIZE! 2 - < do
+	# Render the board
+	0 while _ BOARD_SIZE! < do
+		board! over + v
+		chars! <-> + v
+		over buf! <-> + <-> ^
+		1 +
+	end !
+	64 1 buf! BOARD_SIZE! 1 + syscall3 !
+
+	# Generate the next board state
+	board! 0 + v 1 << board! 1 + v | # pat
+	1 while _ BOARD_SIZE! 1 - < do
+		<-> 1 << 7 & over board! <-> + 1 + v | # next_pat
+		over board! + over 110 <-> >> 1 & ^ <->
+		1 +
+	end ! !
+
+	1 +
+end !
+

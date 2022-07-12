@@ -6,7 +6,7 @@ A stack-based programming language.
 
 - [x] Compiles to arm64 assembly
 - [ ] Compiles to x86_64 assembly
-- [ ] Turing complete
+- [x] Turing complete (See [Rule110 Examples](./examples/arm64/rule110.clq))
 - [ ] Static typed
 - [ ] Optimized for speed
 
