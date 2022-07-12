@@ -2,7 +2,7 @@
 :stdout 0:
 
 :end:
-:stderr 130:
-./tests/mutually-recursive-macro.clq:6:2: [ERR]: Macro `foo!` has been expanded 1000 times which is over the expand limit (1000)!
+:stderr 128:
+tests/mutually-recursive-macro.clq:6:2: [ERR]: Macro `foo!` has been expanded 1000 times which is over the expand limit (1000)!
 
 :end:

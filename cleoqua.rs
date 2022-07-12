@@ -25,6 +25,11 @@ enum TokenType {
   Minus,
   LessThan,
 
+  ShiftLeft,
+  ShiftRight,
+  BitwiseOr,
+  BitwiseAnd,
+
   Dup,
   Over,
   Dropp,
@@ -82,6 +87,7 @@ macro_rules! note {
 fn lex(origin: &str, s: &str) -> Vec<Token> {
   fn is_int(s: &str) -> bool {
     let mut chars = s.chars().peekable();
+    let mut contain_int = false;
 
     while let Some('-') = chars.peek() {
       chars.next();
@@ -89,11 +95,12 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
 
     for ch in chars {
       if let '0'..='9' = ch {
+        contain_int = true;
       } else {
         return false;
       }
     }
-    true
+    contain_int
   }
 
   let mut tokens = Vec::new();
@@ -199,6 +206,11 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "-" => TokenType::Minus,
         "<" => TokenType::LessThan,
 
+        "<<" => TokenType::ShiftLeft,
+        ">>" => TokenType::ShiftRight,
+        "|" => TokenType::BitwiseOr,
+        "&" => TokenType::BitwiseAnd,
+
         "_" => TokenType::Dup,
         "over" => TokenType::Over,
         "!" => TokenType::Dropp,
@@ -261,18 +273,18 @@ fn process_macros(
   cur_file: &str,
   load_dirs: Vec<String>,
   expand_lim: usize,
-  tokens: Vec<Token>,
+  mut tokens: Vec<Token>,
 ) -> Vec<Token> {
-  let mut tokens: Box<dyn Iterator<Item = Token>> = Box::new(tokens.into_iter());
+  tokens.reverse();
   let mut out = Vec::new();
 
   let mut macros: Vec<Macro> = Vec::new();
   let mut loadeds: Vec<String> = vec![cur_file.to_string(), ["./", cur_file].concat()];
 
-  while let Some(token) = tokens.next() {
+  while let Some(token) = tokens.pop() {
     match token.type_ {
       TokenType::Macro => {
-        let token = match tokens.next() {
+        let token = match tokens.pop() {
           Some(
             token @ Token {
               type_: TokenType::MacroName,
@@ -305,7 +317,7 @@ fn process_macros(
             process::exit(1);
           },
         };
-        match tokens.next() {
+        match tokens.pop() {
           Some(Token {
             type_: TokenType::Do,
             ..
@@ -318,7 +330,7 @@ fn process_macros(
 
         let mut body = Vec::new();
         let mut block_depth = 0;
-        for token in tokens.by_ref() {
+        while let Some(token) = tokens.pop() {
           match token.type_ {
             TokenType::End if block_depth == 0 => break,
             TokenType::End => block_depth -= 1,
@@ -357,11 +369,11 @@ fn process_macros(
           },
         };
         macro_.expanded_count += 1;
-        tokens = Box::new(tokens.chain(macro_.body.clone().into_iter()));
+        tokens.extend(macro_.body.clone().into_iter().rev());
       },
 
       TokenType::Load => {
-        let file = match tokens.next() {
+        let file = match tokens.pop() {
           Some(Token {
             type_: TokenType::Str,
             lexeme,
@@ -403,7 +415,7 @@ fn process_macros(
 
         let loaded_tokens = lex(&file, &file_contents);
         loadeds.push(file);
-        tokens = Box::new(tokens.chain(loaded_tokens.into_iter()));
+        tokens.extend(loaded_tokens.into_iter().rev());
       },
 
       _ => out.push(token),
@@ -419,6 +431,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
 
   let mut block_stack = Vec::new();
+  let mut while_jmps = Vec::new();
   let mut strs = Vec::new();
   let mut jmp_count = 0;
 
@@ -526,6 +539,39 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
 
+      TokenType::ShiftLeft => {
+        let _ = writeln!(s, "  // <-- shift left -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  lsl x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::ShiftRight => {
+        let _ = writeln!(s, "  // <-- shift right -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  lsr x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::BitwiseOr => {
+        let _ = writeln!(s, "  // <-- bitwise or -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  orr x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::BitwiseAnd => {
+        let _ = writeln!(s, "  // <-- bitwise and -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  and x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+
       TokenType::Dup => {
         let _ = writeln!(s, "  // <-- dup -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
@@ -563,15 +609,15 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       TokenType::Read => {
         let _ = writeln!(s, "  // <-- load -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
-        let _ = writeln!(s, "  ldr x0, [x0]");
+        let _ = writeln!(s, "  ldrb w0, [x0]");
         let _ = writeln!(s, "  sub sp, x28, #8");
-        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  str w0, [x28, #-8]!");
       },
       TokenType::Write => {
         let _ = writeln!(s, "  // <-- store -->");
-        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr w0, [x28], #8");
         let _ = writeln!(s, "  ldr x1, [x28], #8");
-        let _ = writeln!(s, "  str x0, [x1]");
+        let _ = writeln!(s, "  strb w0, [x1]");
       },
       TokenType::Syscall => {
         let _ = writeln!(s, "  // <-- syscall -->");
@@ -625,6 +671,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         jmp_count += 1;
         let _ = writeln!(s, "jmp_{jmp_count}:");
         jmp_count += 1;
+        while_jmps.push(jmp_count);
 
         block_stack.push(token.clone());
       },
@@ -681,7 +728,10 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
           TokenType::If | TokenType::Else => (),
 
           TokenType::While => {
+            jmp_count = while_jmps.pop().unwrap();
             let _ = writeln!(s, "  b jmp_{}", jmp_count - 1);
+            let _ = writeln!(s, "jmp_{jmp_count}:");
+            continue;
           },
 
           _ => unreachable!(),
