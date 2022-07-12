@@ -1,0 +1,4 @@
+# Shift left
+2 2 << putd
+10 putc
+
