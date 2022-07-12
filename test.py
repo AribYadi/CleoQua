@@ -152,6 +152,8 @@ if __name__ == '__main__':
 
     i += 1
 
+  test_dir = test_dir if test_dir[0:2] != './' else test_dir[2:]
+
   print("[INFO]: Building CleoQua..")
   subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True)
   print()
