@@ -6,3 +6,7 @@
 2 4 | putd
 10 putc
 
+# Bitwise And
+4 6 & putd
+10 putc
+

@@ -9,4 +9,5 @@ load2
 recursive-macro
 recursive-load
 mutually-recursive-macro
+bitwise
 
