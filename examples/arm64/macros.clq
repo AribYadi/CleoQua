@@ -7,9 +7,9 @@ macro name! do
 end
 
 macro writeln! do
-	syscall3 10 putc
+	64 syscall3 10 putc
 end
 
-64 1 0 name! writeln!
-64 1 1 name! writeln!
+1 0 name! writeln!
+1 1 name! writeln!
 

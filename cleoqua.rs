@@ -638,11 +638,11 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
         let syscall_argc: usize = token.lexeme[token.lexeme.len() - 1..].parse().unwrap();
 
+        let _ = writeln!(s, "  ldr x8, [x28], #8");
         for i in (0..syscall_argc).rev() {
           let _ = writeln!(s, "  ldr x{i}, [x28], #8");
         }
 
-        let _ = writeln!(s, "  ldr x8, [x28], #8");
         let _ = writeln!(s, "  svc 0");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");

@@ -1,2 +1,2 @@
-64 1 "Hello from Load2!" syscall3 !
+1 "Hello from Load2!" 64 syscall3 !
 

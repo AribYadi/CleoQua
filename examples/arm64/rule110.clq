@@ -27,7 +27,7 @@ board! BOARD_SIZE! + 2 - 1 ^
 		over buf! <-> + <-> ^
 		1 +
 	end !
-	64 1 buf! BOARD_SIZE! 1 + syscall3 !
+	1 buf! BOARD_SIZE! 1 + 64 syscall3 !
 
 	# Generate the next board state
 	board! 0 + v 1 << board! 1 + v | # pat
