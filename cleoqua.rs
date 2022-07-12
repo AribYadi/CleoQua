@@ -609,15 +609,15 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       TokenType::Read => {
         let _ = writeln!(s, "  // <-- load -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
-        let _ = writeln!(s, "  ldr x0, [x0]");
+        let _ = writeln!(s, "  ldrb w0, [x0]");
         let _ = writeln!(s, "  sub sp, x28, #8");
-        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  str w0, [x28, #-8]!");
       },
       TokenType::Write => {
         let _ = writeln!(s, "  // <-- store -->");
-        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr w0, [x28], #8");
         let _ = writeln!(s, "  ldr x1, [x28], #8");
-        let _ = writeln!(s, "  str x0, [x1]");
+        let _ = writeln!(s, "  strb w0, [x1]");
       },
       TokenType::Syscall => {
         let _ = writeln!(s, "  // <-- syscall -->");
