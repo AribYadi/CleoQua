@@ -87,6 +87,7 @@ macro_rules! note {
 fn lex(origin: &str, s: &str) -> Vec<Token> {
   fn is_int(s: &str) -> bool {
     let mut chars = s.chars().peekable();
+    let mut contain_int = false;
 
     while let Some('-') = chars.peek() {
       chars.next();
@@ -94,11 +95,12 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
 
     for ch in chars {
       if let '0'..='9' = ch {
+        contain_int = true;
       } else {
         return false;
       }
     }
-    true
+    contain_int
   }
 
   let mut tokens = Vec::new();
@@ -429,6 +431,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
 
   let mut block_stack = Vec::new();
+  let mut while_jmps = Vec::new();
   let mut strs = Vec::new();
   let mut jmp_count = 0;
 
@@ -668,6 +671,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         jmp_count += 1;
         let _ = writeln!(s, "jmp_{jmp_count}:");
         jmp_count += 1;
+        while_jmps.push(jmp_count);
 
         block_stack.push(token.clone());
       },
@@ -724,7 +728,10 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
           TokenType::If | TokenType::Else => (),
 
           TokenType::While => {
+            jmp_count = while_jmps.pop().unwrap();
             let _ = writeln!(s, "  b jmp_{}", jmp_count - 1);
+            let _ = writeln!(s, "jmp_{jmp_count}:");
+            continue;
           },
 
           _ => unreachable!(),

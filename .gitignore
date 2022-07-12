@@ -10,4 +10,6 @@ recursive-macro
 recursive-load
 mutually-recursive-macro
 bitwise
+while-inside-while
+multiple-whiles-inside-while
 

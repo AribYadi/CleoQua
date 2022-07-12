@@ -1,0 +1,14 @@
+0 while _ 10 < do
+	_ while _ 10 < do
+		_ putd
+		1 +
+	end !
+
+	_ while _ 10 < do
+		_ putd
+		1 +
+	end !
+
+	1 +
+end !
+
