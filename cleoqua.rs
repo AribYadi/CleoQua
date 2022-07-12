@@ -26,6 +26,7 @@ enum TokenType {
   LessThan,
 
   ShiftLeft,
+  BitwiseOr,
 
   Dup,
   Over,
@@ -202,6 +203,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "<" => TokenType::LessThan,
 
         "<<" => TokenType::ShiftLeft,
+        "|" => TokenType::BitwiseOr,
 
         "_" => TokenType::Dup,
         "over" => TokenType::Over,
@@ -534,6 +536,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  ldr x1, [x28], #8");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  lsl x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::BitwiseOr => {
+        let _ = writeln!(s, "  // <-- bitwise or -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  orr x0, x0, x1");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
