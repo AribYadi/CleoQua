@@ -32,6 +32,7 @@ enum TokenType {
 
   Dup,
   Over,
+  TwoOver,
   Dropp,
   Swap,
 
@@ -213,6 +214,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
 
         "_" => TokenType::Dup,
         "over" => TokenType::Over,
+        "2over" => TokenType::TwoOver,
         "!" => TokenType::Dropp,
         "<->" => TokenType::Swap,
 
@@ -586,6 +588,18 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  sub sp, x28, #24");
         let _ = writeln!(s, "  str x1, [x28, #-8]!");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  str x1, [x28, #-8]!");
+      },
+      TokenType::TwoOver => {
+        let _ = writeln!(s, "  // <-- 2over -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x2, [x28], #8");
+        let _ = writeln!(s, "  sub sp, x28, #40");
+        let _ = writeln!(s, "  str x2, [x28, #-8]!");
+        let _ = writeln!(s, "  str x1, [x28, #-8]!");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+        let _ = writeln!(s, "  str x2, [x28, #-8]!");
         let _ = writeln!(s, "  str x1, [x28, #-8]!");
       },
       TokenType::Dropp => {

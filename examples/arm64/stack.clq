@@ -1,0 +1,27 @@
+# Push ints
+1 2
+
+# Pops then adds the two top values on the stack then push the result
++ putd # 3
+10 putc
+
+# Duplicates the value on top of the stack then push
+1 2 _ putd putd putd # 221
+10 putc
+
+# Duplicates the 2nd to top of the stack
+1 2 over putd putd putd # 121
+10 putc
+
+# Duplicates the 2nd and 3rd to the top of the stack
+1 2 3 2over putd putd putd putd putd # 21321
+10 putc
+
+# Pops the top of the stack
+1 2 ! putd # 1
+10 putc
+
+# Swaps the top of the stack with the 2nd
+1 2 <-> putd putd # 12
+10 putc
+
