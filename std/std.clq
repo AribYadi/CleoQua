@@ -20,3 +20,11 @@ macro println! do
   stdout! 2over writeln! ! ! !
 end
 
+macro strlen! do
+	# TODO: implement `==` and `!=`
+	_ while 1 over v < do
+		1 +
+	end
+	over -
+end
+

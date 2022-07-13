@@ -1,0 +1,9 @@
+load! "std.clq"
+
+argv argc while 0 over < do
+	<-> _ v strlen! print!
+	8 + <->
+	1 -
+end
+"" println!
+

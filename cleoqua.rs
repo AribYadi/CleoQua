@@ -40,6 +40,8 @@ enum TokenType {
   Read,
   Write,
   Syscall,
+  ArgV,
+  ArgC,
 
   PutD,
   PutC,
@@ -223,6 +225,8 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "^" => TokenType::Write,
         "syscall0" | "syscall1" | "syscall2" | "syscall3" | "syscall4" | "syscall5"
         | "syscall6" => TokenType::Syscall,
+        "argv" => TokenType::ArgV,
+        "argc" => TokenType::ArgC,
 
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
@@ -439,6 +443,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
 
   let _ = writeln!(s, ".bss");
   let _ = writeln!(s, ".lcomm MEM, {MEM_LENGTH}");
+  let _ = writeln!(s, ".lcomm ARG_PTR, 8");
 
   let _ = writeln!(s);
 
@@ -486,6 +491,8 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let _ = writeln!(s, "_start:");
 
   let _ = writeln!(s, "  mov x28, sp");
+  let _ = writeln!(s, "  ldr x0, =ARG_PTR");
+  let _ = writeln!(s, "  str x28, [x0]");
 
   for token in tokens {
     match token.type_ {
@@ -644,6 +651,22 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         }
 
         let _ = writeln!(s, "  svc 0");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::ArgV => {
+        let _ = writeln!(s, "  // <-- argc -->");
+        let _ = writeln!(s, "  ldr x0, =ARG_PTR");
+        let _ = writeln!(s, "  ldr x0, [x0]");
+        let _ = writeln!(s, "  add x0, x0, #8");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::ArgC => {
+        let _ = writeln!(s, "  // <-- argc -->");
+        let _ = writeln!(s, "  ldr x0, =ARG_PTR");
+        let _ = writeln!(s, "  ldr x0, [x0]");
+        let _ = writeln!(s, "  ldr x0, [x0]");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
