@@ -1,2 +1,4 @@
-1 "Hello from Load2!" 64 syscall3 !
+load! "std.clq"
+
+"Hello from Load2!" println!
 

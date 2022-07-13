@@ -788,11 +788,13 @@ fn usage() {
   println!(
     "[INFO]:   --expand-limit, -e: Set the expand limit for macros. Default is {DEF_EXPAND_LIM}."
   );
+  println!("[INFO]:   --load-dir,     -L: Adds a directory to load files from.");
 }
 
 fn main() {
   let mut file = None;
   let mut expand_lim = DEF_EXPAND_LIM;
+  let mut load_dirs = vec!["./".to_string()];
 
   let mut args = env::args().skip(1);
   while let Some(arg) = args.next() {
@@ -822,6 +824,16 @@ fn main() {
             },
           };
           expand_lim = lim;
+        },
+        "load-dir" | "L" => {
+          let load_dir = match args.next() {
+            Some(load_dir) => load_dir,
+            None => {
+              eprintln!("[ERR]: Expected directory.");
+              process::exit(1);
+            },
+          };
+          load_dirs.push(load_dir);
         },
         _ => {
           usage();
@@ -863,8 +875,7 @@ fn main() {
   let file_name = file_name.file_name().unwrap().to_string_lossy();
 
   file_dir.pop();
-
-  let load_dirs = vec![file_dir.to_string_lossy().to_string(), "./".to_string()];
+  load_dirs.push(file_dir.to_string_lossy().to_string());
 
   let tokens = lex(&file, &file_contents);
   let tokens = process_macros(&file_name, load_dirs, expand_lim, tokens);

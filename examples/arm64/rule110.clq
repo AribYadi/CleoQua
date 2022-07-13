@@ -4,6 +4,8 @@
 # This example is based on my Rule110 implementation in Rust.
 #   https://gist.github.com/AribYadi/52a4d09eb52f42656bb01cba9255b036
 
+load! "std.clq"
+
 macro BOARD_SIZE! do 30 end
 
 macro chars! do mem end
@@ -27,7 +29,7 @@ board! BOARD_SIZE! + 2 - 1 ^
 		over buf! <-> + <-> ^
 		1 +
 	end !
-	1 buf! BOARD_SIZE! 1 + 64 syscall3 !
+	buf! BOARD_SIZE! 1 + print!
 
 	# Generate the next board state
 	board! 0 + v 1 << board! 1 + v | # pat

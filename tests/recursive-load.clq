@@ -1,4 +1,5 @@
+load! "std.clq"
 load! "recursive-load.clq"
 
-1 "Hello" 64 syscall3
+"Hello" print!
 

@@ -64,8 +64,9 @@ class TestCase():
 def usage():
   print('[INFO]: test.py [OPTIONS] [TEST-DIR]')
   print('[INFO]:   OPTIONS:')
-  print('[INFO]:     --help,   -h: Prints this help message.')
-  print('[INFO]:     --update, -u: Prints this help message.')
+  print('[INFO]:     --help,     -h: Prints this help message.')
+  print('[INFO]:     --update,   -u: Prints this help message.')
+  print('[INFO]:     --continue, -c: Continue even if a test fails.')
 
 
 def update_file(path: str):
@@ -76,7 +77,7 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  proc = subprocess.run(['./cleoqua', path], capture_output = True)
+  proc = subprocess.run(['./cleoqua', path, '-L', 'std'], capture_output = True)
   if proc.returncode != 0:
     result = proc
   else:
@@ -88,7 +89,7 @@ def update_file(path: str):
 
   print(f'[INFO]: Updated output of `{path}`')
 
-def test_file(path: str):
+def test_file(continu: bool, path: str):
   print(f'[INFO]: Testing output of `{path}`..')
 
   asm_path = path[:-len(CLEOQUA_EXT)] + '.S'
@@ -102,7 +103,7 @@ def test_file(path: str):
     print(f'[WARN]: Record path for `{path}` not found. Skipping.')
     return
 
-  proc = subprocess.run(['./cleoqua', path], capture_output = True)
+  proc = subprocess.run(['./cleoqua', path, '-L', 'std'], capture_output = True)
   if proc.returncode != 0:
     result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
   else:
@@ -124,11 +125,13 @@ def test_file(path: str):
     print(f'  exit code: {recorded.exitcode}', file = sys.stderr)
     print(f'  stdout: \n{recorded.stdout.decode("utf-8")}', file = sys.stderr)
     print(f'  stderr: \n{recorded.stderr.decode("utf-8")}', file = sys.stderr)
-    sys.exit(1)
+    if not continu:
+        sys.exit(1)
 
 if __name__ == '__main__':
   test_dir = './tests'
   update = False
+  continu = False
 
   i = 0
   for arg in sys.argv:
@@ -142,6 +145,8 @@ if __name__ == '__main__':
         sys.exit(0)
       elif arg == 'update' or arg == 'u':
         update = True
+      elif arg == 'continue' or arg == 'c':
+        continu = True
       else:
         print(f'[ERR]: Unknown option `{arg}`')
         sys.exit(1)
@@ -154,7 +159,7 @@ if __name__ == '__main__':
 
   test_dir = test_dir if test_dir[0:2] != './' else test_dir[2:]
 
-  print("[INFO]: Building CleoQua..")
+  print('[INFO]: Building CleoQua..')
   subprocess.run(['rustc', '-o', 'cleoqua', 'cleoqua.rs'], capture_output = True)
   print()
 
@@ -164,5 +169,5 @@ if __name__ == '__main__':
       if update:
         update_file(file)
       else:
-        test_file(file)
+        test_file(continu, file)
 

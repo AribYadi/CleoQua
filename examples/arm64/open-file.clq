@@ -1,16 +1,16 @@
+load! "std.clq"
+
 # open file
--100 "./examples/arm64/open-file.txt" ! 0 438 56 syscall4
+-100 "./examples/arm64/open-file.txt" ! 0 438 sys_openat! syscall4
 if _ 0 < do
-  2 "Run this binary from cleoqua's project root!" 64 syscall3 !
-  mem 10 ^
-  2 mem 1 64 syscall3 !
-  1 93 syscall1 !
+  2 "Run this binary from cleoqua's project root!" writeln! !
+  1 sys_exit! syscall1 !
 end
 
 # print file
-mem 1024 63 syscall3
-1 <-> mem <-> 64 syscall3 !
+mem 1024 sys_read! syscall3
+mem <-> print!
 
 # close file
-57 syscall1 !
+sys_close! syscall1 !
 

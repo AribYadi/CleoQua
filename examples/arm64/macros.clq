@@ -1,3 +1,5 @@
+load! "std.clq"
+
 macro name! do
 	if 1 < do
 		"James"
@@ -6,10 +8,6 @@ macro name! do
 	end
 end
 
-macro writeln! do
-	64 syscall3 10 putc
-end
-
-1 0 name! writeln!
-1 1 name! writeln!
+0 name! println!
+1 name! println!
 

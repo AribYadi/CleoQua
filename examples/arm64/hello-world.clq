@@ -1,6 +1,4 @@
-# Calls syscall number 64
-1 "Hello, world!" 64 syscall3
+load! "std.clq"
 
-# Prints newline
-10 putc
+"Hello, world!" println!
 

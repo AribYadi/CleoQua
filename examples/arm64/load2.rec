@@ -1,6 +1,7 @@
 :exitcode 0:
-:stdout 17:
+:stdout 18:
 Hello from Load2!
+
 :end:
 :stderr 0:
 
