@@ -1,0 +1,7 @@
+if 1 do
+	0 while _ 10 < do
+		_ putd
+		1 +
+	end
+end
+

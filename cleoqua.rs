@@ -447,9 +447,8 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let mut s = String::new();
 
   let mut block_stack = Vec::new();
-  let mut while_jmps = Vec::new();
   let mut strs = Vec::new();
-  let mut jmp_count = 0;
+  let mut jmp_tracker = 0;
 
   let _ = writeln!(s, ".bss");
   let _ = writeln!(s, ".lcomm MEM, {MEM_LENGTH}");
@@ -740,48 +739,61 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  // <-- if -->");
 
         // To allow `else if` we jump to the same jump dest of `else`
-        if let Some(Token {
-          type_: TokenType::Else,
-          ..
-        }) = block_stack.last()
+        if let Some((
+          Token {
+            type_: TokenType::Else,
+            ..
+          },
+          _,
+        )) = block_stack.last()
         {
         } else {
-          jmp_count += 1;
+          jmp_tracker += 1;
         }
 
-        block_stack.push(token.clone());
+        block_stack.push((token.clone(), jmp_tracker));
       },
       TokenType::While => {
         let _ = writeln!(s, "  // <-- while -->");
 
         // We create a new label for `end` to jump to
-        jmp_count += 1;
-        let _ = writeln!(s, "jmp_{jmp_count}:");
-        jmp_count += 1;
-        while_jmps.push(jmp_count);
+        jmp_tracker += 1;
+        let _ = writeln!(s, "jmp_{jmp_tracker}:");
+        jmp_tracker += 1;
 
-        block_stack.push(token.clone());
+        block_stack.push((token.clone(), jmp_tracker));
       },
       TokenType::Do => {
+        let jmp_tracker = match block_stack.last() {
+          Some((_, jmp_tracker)) => jmp_tracker,
+          None => {
+            err!(token, "Found a lone `do`!");
+            process::exit(1);
+          },
+        };
+
         let _ = writeln!(s, "  // <-- do -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  cmp x0, 1");
-        let _ = writeln!(s, "  b.ne jmp_{jmp_count}");
+        let _ = writeln!(s, "  b.ne jmp_{jmp_tracker}");
       },
       TokenType::Else => {
         let _ = writeln!(s, "  // <-- else -->");
         // Jump to end if `else` was reached
-        let _ = writeln!(s, "  b jmp_{}", jmp_count + 1);
+        let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
 
         // Otherwise we jump to this label if `if`'s condition was falsy
         match block_stack.pop() {
-          Some(Token {
-            type_: TokenType::If,
-            ..
-          }) => {
-            let _ = writeln!(s, "jmp_{jmp_count}:");
+          Some((
+            Token {
+              type_: TokenType::If,
+              ..
+            },
+            jmp_tracker,
+          )) => {
+            let _ = writeln!(s, "jmp_{jmp_tracker}:");
           },
-          Some(block_tok) => {
+          Some((block_tok, _)) => {
             err!(
               token,
               "`else` cannot be appended to `{}`!",
@@ -796,35 +808,35 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
           },
         }
 
-        block_stack.push(token.clone());
-        jmp_count += 1;
+        jmp_tracker += 1;
+        block_stack.push((token.clone(), jmp_tracker));
       },
       TokenType::End => {
         let _ = writeln!(s, "  // <-- end -->");
 
-        let block_type = match block_stack.pop() {
-          Some(b) => b.type_,
+        let (block_type, jmp) = match block_stack.pop() {
+          Some((b, jmp_tracker)) => (b.type_, jmp_tracker),
           None => {
             err!(token, "Found a lone `end`!");
             process::exit(1);
           },
         };
 
+        jmp_tracker = jmp;
         match block_type {
           // End for if's and else's doesn't really do anything special
           TokenType::If | TokenType::Else => (),
 
           TokenType::While => {
-            jmp_count = while_jmps.pop().unwrap();
-            let _ = writeln!(s, "  b jmp_{}", jmp_count - 1);
-            let _ = writeln!(s, "jmp_{jmp_count}:");
+            let _ = writeln!(s, "  b jmp_{}", jmp_tracker - 1);
+            let _ = writeln!(s, "jmp_{jmp_tracker}:");
             continue;
           },
 
           _ => unreachable!(),
         }
 
-        let _ = writeln!(s, "jmp_{jmp_count}:");
+        let _ = writeln!(s, "jmp_{jmp_tracker}:");
       },
 
       TokenType::Macro | TokenType::MacroName | TokenType::Load => unreachable!(),
@@ -843,7 +855,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   }
 
   if !block_stack.is_empty() {
-    for block_tok in block_stack.iter().rev() {
+    for (block_tok, _) in block_stack.iter().rev() {
       err!(block_tok, "`{}` doesn't have an `end`!", block_tok.lexeme);
     }
     process::exit(1);
