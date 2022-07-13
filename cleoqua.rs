@@ -24,6 +24,9 @@ enum TokenType {
   Plus,
   Minus,
   LessThan,
+  Mod,
+  EqEq,
+  BangEq,
 
   ShiftLeft,
   ShiftRight,
@@ -210,6 +213,9 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "+" => TokenType::Plus,
         "-" => TokenType::Minus,
         "<" => TokenType::LessThan,
+        "%" => TokenType::Mod,
+        "==" => TokenType::EqEq,
+        "!=" => TokenType::BangEq,
 
         "<<" => TokenType::ShiftLeft,
         ">>" => TokenType::ShiftRight,
@@ -548,6 +554,33 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  cmp x0, x1");
         let _ = writeln!(s, "  cset x0, lt");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::Mod => {
+        let _ = writeln!(s, "  // <-- mod -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  udiv x2, x0, x1");
+        let _ = writeln!(s, "  msub x0, x2, x1, x0");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::EqEq => {
+        let _ = writeln!(s, "  // <-- equal -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  cmp x0, x1");
+        let _ = writeln!(s, "  cset x0, eq");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::BangEq => {
+        let _ = writeln!(s, "  // <-- not equal -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  cmp x0, x1");
+        let _ = writeln!(s, "  cset x0, ne");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },

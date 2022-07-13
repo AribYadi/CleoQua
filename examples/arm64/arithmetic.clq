@@ -1,0 +1,12 @@
+# Addition
+1 2 + putd
+10 putc
+
+# Subtraction
+2 1 - putd
+10 putc
+
+# Modulus / Remainder
+32 10 % putd
+10 putc
+

@@ -1,0 +1,12 @@
+# Less Than
+1 2 < putd
+10 putc
+
+# Equal
+1 2 == putd
+10 putc
+
+# Not Equal
+1 2 != putd
+10 putc
+

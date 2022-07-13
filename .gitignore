@@ -15,4 +15,6 @@ multiple-whiles-inside-while
 rule110
 stack
 args
+arithmetic
+comparison
 
