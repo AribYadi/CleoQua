@@ -1,0 +1,8 @@
+:exitcode 0:
+:stdout 21:
+examples/arm64/args 
+
+:end:
+:stderr 0:
+
+:end:
