@@ -277,3 +277,11 @@ macro sys_pkey_alloc!              do  289  end
 macro sys_pkey_free!               do  290  end
 macro sys_statx!                   do  291  end
 
+macro strlen! do
+	# TODO: implement `==` and `!=`
+	_ while 1 over v < do
+		1 +
+	end
+	over -
+end
+

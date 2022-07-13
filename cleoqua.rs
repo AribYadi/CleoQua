@@ -39,6 +39,8 @@ enum TokenType {
   Mem,
   Read,
   Write,
+  Read64,
+  Write64,
   Syscall,
   ArgV,
   ArgC,
@@ -223,6 +225,8 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "mem" => TokenType::Mem,
         "v" => TokenType::Read,
         "^" => TokenType::Write,
+        "v64" => TokenType::Read64,
+        "^64" => TokenType::Write64,
         "syscall0" | "syscall1" | "syscall2" | "syscall3" | "syscall4" | "syscall5"
         | "syscall6" => TokenType::Syscall,
         "argv" => TokenType::ArgV,
@@ -628,17 +632,30 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
       TokenType::Read => {
-        let _ = writeln!(s, "  // <-- load -->");
+        let _ = writeln!(s, "  // <-- read -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  ldrb w0, [x0]");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str w0, [x28, #-8]!");
       },
       TokenType::Write => {
-        let _ = writeln!(s, "  // <-- store -->");
+        let _ = writeln!(s, "  // <-- write -->");
         let _ = writeln!(s, "  ldr w0, [x28], #8");
         let _ = writeln!(s, "  ldr x1, [x28], #8");
         let _ = writeln!(s, "  strb w0, [x1]");
+      },
+      TokenType::Read64 => {
+        let _ = writeln!(s, "  // <-- read64 -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x0]");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::Write64 => {
+        let _ = writeln!(s, "  // <-- store64 -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  str x0, [x1]");
       },
       TokenType::Syscall => {
         let _ = writeln!(s, "  // <-- syscall -->");
