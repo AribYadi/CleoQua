@@ -1,6 +1,9 @@
+:argv 11:
+123 456 789
+:end:
 :exitcode 0:
-:stdout 21:
-examples/arm64/args 
+:stdout 33:
+examples/arm64/args 123 456 789 
 
 :end:
 :stderr 0:

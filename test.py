@@ -3,7 +3,7 @@
 import sys
 import os
 import subprocess
-from typing import BinaryIO
+from typing import BinaryIO, List
 from dataclasses import dataclass
 
 CLEOQUA_EXT='.clq'
@@ -13,12 +13,14 @@ END_TAG='\n:end:\n'
 
 @dataclass
 class TestCase():
+  argv: List[bytes]
   exitcode: int
   stdout: bytes
   stderr: bytes
 
   def write(self, path: str) -> bool:
     with open(path, 'wb') as f:
+      TestCase.write_blob_field(f, 'argv', b' '.join(self.argv))
       TestCase.write_int_field(f, 'exitcode', self.exitcode)
       TestCase.write_blob_field(f, 'stdout', self.stdout)
       TestCase.write_blob_field(f, 'stderr', self.stderr)
@@ -27,10 +29,11 @@ class TestCase():
   @classmethod
   def read(cls, path: str) -> 'TestCase':
     with open(path, 'rb') as f:
+      argv = TestCase.read_argv(f)
       exitcode = TestCase.read_int_field(f, 'exitcode')
       stdout = TestCase.read_blob_field(f, 'stdout')
       stderr = TestCase.read_blob_field(f, 'stderr')
-    return cls(exitcode, stdout, stderr)
+    return cls(argv, exitcode, stdout, stderr)
 
   @staticmethod
   def write_blob_field(f: BinaryIO, name: str, blob: bytes):
@@ -41,6 +44,20 @@ class TestCase():
   @staticmethod
   def write_int_field(f: BinaryIO, name: str, value: int):
     f.write(f':{name} {value}:\n'.encode())
+
+  # TODO: add a flag to update argv
+  @staticmethod
+  def read_argv(f: BinaryIO) -> List[bytes]:
+    line = f.readline()
+    field = f':argv '.encode()
+    if line.startswith(field):
+      assert line.endswith(b':\n'), f'Broken record file. Missing closing tag of blob `argv`.'
+      size = int(line[len(field):-2])
+      blob = f.read(size)
+      assert f.read(len(END_TAG)) == END_TAG.encode(), f'Broken record file. Missing end of blob `argv` tag.'
+      return blob.split(b' ')
+    else:
+      return []
 
   @staticmethod
   def read_blob_field(f: BinaryIO, name: str) -> bytes:
@@ -77,15 +94,18 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
+  with open(rec_path, 'rb') as f:
+    argv = TestCase.read_argv(f)
+
   proc = subprocess.run(['./cleoqua', path, '-L', 'std'], capture_output = True)
   if proc.returncode != 0:
     result = proc
   else:
     subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
     subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-    result = subprocess.run([exe_path], capture_output = True)
+    result = subprocess.run([exe_path, *argv], capture_output = True)
 
-  TestCase(result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
+  TestCase(argv, result.returncode, result.stdout.replace(b'\r\n', b'\n'), result.stderr.replace(b'\r\n', b'\n')).write(rec_path)
 
   print(f'[INFO]: Updated output of `{path}`')
 
@@ -97,6 +117,9 @@ def test_file(continu: bool, path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
+  with open(rec_path, 'rb') as f:
+    argv = TestCase.read_argv(f)
+
   if os.path.exists(rec_path):
     recorded = TestCase.read(rec_path)
   else:
@@ -105,13 +128,13 @@ def test_file(continu: bool, path: str):
 
   proc = subprocess.run(['./cleoqua', path, '-L', 'std'], capture_output = True)
   if proc.returncode != 0:
-    result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
+    result = TestCase(argv, proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
   else:
     subprocess.run(['as', '-o', obj_path, asm_path], capture_output = True)
     subprocess.run(['ld', '-o', exe_path, obj_path], capture_output = True)
-    proc = subprocess.run([exe_path], capture_output = True)
+    proc = subprocess.run([exe_path, *argv], capture_output = True)
 
-    result = TestCase(proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
+    result = TestCase(argv, proc.returncode, proc.stdout.replace(b'\r\n', b'\n'), proc.stderr.replace(b'\r\n', b'\n'))
 
   if recorded == result:
     print(f'[INFO]: `{path}` matched its recorded output.');
