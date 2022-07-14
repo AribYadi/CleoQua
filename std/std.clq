@@ -45,12 +45,20 @@ macro stdin!  do 0 end
 macro stdout! do 1 end
 macro stderr! do 2 end
 
+macro fputc! do
+  mem v64 <->
+  mem <-> ^
+  <-> mem 1 write! !
+  mem <-> ^64
+end
+
 macro write! do
   sys_write! syscall3
 end
 
 macro writeln! do
-  write! 10 putc
+  2over ! 2over write!
+  <-> ! <-> ! <-> 10 fputc!
 end
 
 macro print! do
