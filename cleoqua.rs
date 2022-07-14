@@ -789,18 +789,19 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       },
       TokenType::Else => {
         let _ = writeln!(s, "  // <-- else -->");
-        // Jump to end if `else` was reached
-        let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
 
-        // Otherwise we jump to this label if `if`'s condition was falsy
         match block_stack.pop() {
           Some((
             Token {
               type_: TokenType::If,
               ..
             },
-            jmp_tracker,
+            jmp,
           )) => {
+            jmp_tracker = jmp;
+            // Jump to end if `else` was reached
+            let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
+            // Otherwise we jump to this label if `if`'s condition was falsy
             let _ = writeln!(s, "jmp_{jmp_tracker}:");
           },
           Some((block_tok, _)) => {
@@ -833,12 +834,11 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         };
 
         match block_type {
-          // End for if's and else's doesn't really do anything special
+          // End for ifs and elses doesn't really do anything special
           TokenType::If | TokenType::Else => (),
 
           TokenType::While => {
-            jmp_tracker = jmp;
-            let _ = writeln!(s, "  b jmp_{}", jmp_tracker - 1);
+            let _ = writeln!(s, "  b jmp_{}", jmp - 1);
           },
 
           _ => unreachable!(),
