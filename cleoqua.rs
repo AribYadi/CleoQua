@@ -827,16 +827,26 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         match block_stack.pop() {
           Some((
             Token {
-              type_: TokenType::If | TokenType::Elif,
+              type_: TokenType::If,
+              ..
+            },
+            jmp,
+          )) => {
+            // Jump to end if `else` was reached
+            let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
+            // Otherwise we jump to this label if `if`'s condition was falsy
+            let _ = writeln!(s, "jmp_{jmp}:");
+          },
+          Some((
+            Token {
+              type_: TokenType::Elif,
               ..
             },
             jmp,
           )) => {
             // Label for elif to jump too
             let _ = writeln!(s, "jmp_{}:", jmp + 1);
-            // Jump to end if `else` was reached
             let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
-            // Otherwise we jump to this label if `if`'s condition was falsy
             let _ = writeln!(s, "jmp_{jmp}:");
           },
           Some((block_tok, _)) => {
