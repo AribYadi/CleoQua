@@ -799,7 +799,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
             jmp,
           )) => {
             // Jump to end if `else` was reached
-            let _ = writeln!(s, "  b jmp_{}", jmp + 1);
+            let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
             // Otherwise we jump to this label if `if`'s condition was falsy
             let _ = writeln!(s, "jmp_{jmp}:");
           },

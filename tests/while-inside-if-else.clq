@@ -1,0 +1,8 @@
+if 1 do
+  while 0 do end
+  1 putd
+else
+  0 putd
+end
+
+
