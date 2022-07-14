@@ -19,7 +19,7 @@ syn region clqComment start="#" end="$" contains=clqTodo
 syn match clqString /\v(\s|^)@<=".*"(\s|$)@=/
 syn match clqCharacter /\v(\s|^)@<='.'(\s|$)@=/
 
-syn match clqInt /\v(\s|^)@<=[0-9]+(\s|$)@=/
+syn match clqInt /\v(\s|^)@<=-*[0-9]+(\s|$)@=/
 
 hi def link clqKeyword   Keyword
 hi def link clqTodo      Todo
