@@ -6,6 +6,10 @@
 2 1 - putd
 10 putc
 
+# Multiplication
+10 5 * putd
+10 putc
+
 # Modulus / Remainder
 32 10 % putd
 10 putc

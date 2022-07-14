@@ -23,6 +23,7 @@ enum TokenType {
 
   Plus,
   Minus,
+  Star,
   LessThan,
   Mod,
   EqEq,
@@ -212,6 +213,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
 
         "+" => TokenType::Plus,
         "-" => TokenType::Minus,
+        "*" => TokenType::Star,
         "<" => TokenType::LessThan,
         "%" => TokenType::Mod,
         "==" => TokenType::EqEq,
@@ -544,6 +546,14 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  ldr x1, [x28], #8");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
         let _ = writeln!(s, "  sub x0, x0, x1");
+        let _ = writeln!(s, "  sub sp, x28, #8");
+        let _ = writeln!(s, "  str x0, [x28, #-8]!");
+      },
+      TokenType::Star => {
+        let _ = writeln!(s, "  // <-- star -->");
+        let _ = writeln!(s, "  ldr x1, [x28], #8");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  mul x0, x0, x1");
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
