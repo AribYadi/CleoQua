@@ -102,7 +102,7 @@ macro String.until()! do
   over String.len! 0 ^64
   while
     2over ! if _ String.len! v64 0 <-> < do
-      String.addr! v64 v v(char)! over !=
+      String.addr! v64 v(char)! over !=
     else ! 0 end
   do
     2over String.len! _ v64 1 + ^64
