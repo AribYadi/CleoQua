@@ -20,3 +20,22 @@ macro println! do
   stdout! 2over writeln! ! ! !
 end
 
+# struct String {
+#   uint64_t addr;
+#   uint64_t len;
+# };
+macro sizeof(String)! do 16 end
+macro String.addr! do 0 + end
+macro String.len! do 8 + end
+
+macro new(String)! do
+  # buf addr len
+  2over <-> String.addr! <-> ^64 <->
+  2over <-> String.len! <-> ^64 <-> ! !
+end
+
+macro v(String)! do
+  _ String.addr! v64
+  <-> String.len! v64
+end
+

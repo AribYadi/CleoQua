@@ -285,3 +285,31 @@ macro strlen! do
 	over -
 end
 
+macro sizeof(stat)!            do 128   end
+macro sizeof(stat.st_dev)!     do 8     end
+macro sizeof(stat.st_ino)!     do 8     end
+macro sizeof(stat.st_mode)!    do 4     end
+macro sizeof(stat.st_nlink)!   do 4     end
+macro sizeof(stat.st_uid)!     do 4     end
+macro sizeof(stat.st_gid)!     do 4     end
+macro sizeof(stat.st_rdev)!    do 8     end
+macro sizeof(stat.st_size)!    do 8     end
+macro sizeof(stat.st_blksize)! do 4     end
+macro sizeof(stat.st_blocks)!  do 8     end
+macro sizeof(stat.st_atime)!   do 8     end
+macro sizeof(stat.st_mtime)!   do 8     end
+macro sizeof(stat.st_ctime)!   do 8     end
+macro stat.st_dev!             do 0   + end
+macro stat.st_ino!             do 8   + end
+macro stat.st_mode!            do 16  + end
+macro stat.st_nlink!           do 20  + end
+macro stat.st_uid!             do 24  + end
+macro stat.st_gid!             do 28  + end
+macro stat.st_rdev!            do 32  + end
+macro stat.st_size!            do 48  + end
+macro stat.st_blksize!         do 56  + end
+macro stat.st_blocks!          do 64  + end
+macro stat.st_atime!           do 72  + end
+macro stat.st_mtime!           do 88  + end
+macro stat.st_ctime!           do 104 + end
+
