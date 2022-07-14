@@ -832,21 +832,19 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
           },
         };
 
-        jmp_tracker = jmp;
         match block_type {
           // End for if's and else's doesn't really do anything special
           TokenType::If | TokenType::Else => (),
 
           TokenType::While => {
+            jmp_tracker = jmp;
             let _ = writeln!(s, "  b jmp_{}", jmp_tracker - 1);
-            let _ = writeln!(s, "jmp_{jmp_tracker}:");
-            continue;
           },
 
           _ => unreachable!(),
         }
 
-        let _ = writeln!(s, "jmp_{jmp_tracker}:");
+        let _ = writeln!(s, "jmp_{jmp}:");
       },
 
       TokenType::Macro | TokenType::MacroName | TokenType::Load => unreachable!(),

@@ -20,4 +20,5 @@ comparison
 while-inside-if
 if-inside-while
 multiple-ifs-inside-while
+while-inside-multiple-ifs
 
