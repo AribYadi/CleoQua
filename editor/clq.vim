@@ -10,7 +10,7 @@ if exists("b:current_syntax")
 endif
 
 set iskeyword=a-z,A-Z,48-57
-syn keyword clqKeyword if else while do end macro
+syn keyword clqKeyword if else while do end macro elif
 syn match clqKeyword /\v(\s|^)@<=syscall[0-6](\s|$)@=/
 
 syn keyword clqTodo TODO NOTE WARN
