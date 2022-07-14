@@ -1,0 +1,16 @@
+load! "std.clq"
+
+0 while _ 100 < do
+	_ putd
+  if _ 3 % 0 == do
+    ": Fizz" print!
+  end
+	if _ 5 % 0 == do
+		": Bazz" print!
+	end
+	"" println!
+
+	1 +
+end
+
+

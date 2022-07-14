@@ -1,0 +1,11 @@
+load! "std.clq"
+
+0 while _ 10 < do
+  if _ 2 % 0 == do
+    _ putd
+  end
+
+  1 +
+end
+"" println!
+

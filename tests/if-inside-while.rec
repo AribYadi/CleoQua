@@ -1,0 +1,11 @@
+:argv 0:
+
+:end:
+:exitcode 0:
+:stdout 6:
+02468
+
+:end:
+:stderr 0:
+
+:end:
