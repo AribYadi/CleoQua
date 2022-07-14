@@ -53,6 +53,7 @@ enum TokenType {
   PutC,
 
   If,
+  Elif,
   While,
   Do,
   Else,
@@ -244,6 +245,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "putc" => TokenType::PutC,
 
         "if" => TokenType::If,
+        "elif" => TokenType::Elif,
         "while" => TokenType::While,
         "do" => TokenType::Do,
         "else" => TokenType::Else,
@@ -748,20 +750,52 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
       TokenType::If => {
         let _ = writeln!(s, "  // <-- if -->");
 
-        // To allow `else if` we jump to the same jump dest of `else`
-        if let Some((
-          Token {
-            type_: TokenType::Else,
-            ..
+        jmp_tracker += 1;
+        block_stack.push((token.clone(), jmp_tracker));
+      },
+      TokenType::Elif => {
+        let _ = writeln!(s, "  // <-- elif -->");
+
+        match block_stack.pop() {
+          Some((
+            Token {
+              type_: TokenType::If,
+              ..
+            },
+            jmp,
+          )) => {
+            let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 2);
+            let _ = writeln!(s, "jmp_{jmp}:");
           },
-          _,
-        )) = block_stack.last()
-        {
-        } else {
-          jmp_tracker += 1;
+          Some((
+            Token {
+              type_: TokenType::Elif,
+              ..
+            },
+            jmp,
+          )) => {
+            let _ = writeln!(s, "jmp_{}:", jmp + 1);
+            let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 2);
+            let _ = writeln!(s, "jmp_{jmp}:");
+          },
+          Some((block_tok, _)) => {
+            err!(
+              token,
+              "`elif` cannot be appended to `{}`!",
+              block_tok.lexeme
+            );
+            note!(block_tok, "`{}`'s block was opened here.", block_tok.lexeme);
+            process::exit(1);
+          },
+          None => {
+            err!(token, "Found a lone `elif` block!");
+            process::exit(1);
+          },
         }
 
+        jmp_tracker += 1;
         block_stack.push((token.clone(), jmp_tracker));
+        jmp_tracker += 1;
       },
       TokenType::While => {
         let _ = writeln!(s, "  // <-- while -->");
@@ -793,11 +827,13 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         match block_stack.pop() {
           Some((
             Token {
-              type_: TokenType::If,
+              type_: TokenType::If | TokenType::Elif,
               ..
             },
             jmp,
           )) => {
+            // Label for elif to jump too
+            let _ = writeln!(s, "jmp_{}:", jmp + 1);
             // Jump to end if `else` was reached
             let _ = writeln!(s, "  b jmp_{}", jmp_tracker + 1);
             // Otherwise we jump to this label if `if`'s condition was falsy
@@ -833,8 +869,8 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         };
 
         match block_type {
-          // End for ifs and elses doesn't really do anything special
-          TokenType::If | TokenType::Else => (),
+          // End for ifs, elifs, and elses doesn't really do anything special
+          TokenType::If | TokenType::Else | TokenType::Elif => (),
 
           TokenType::While => {
             let _ = writeln!(s, "  b jmp_{}", jmp - 1);
