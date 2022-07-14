@@ -117,6 +117,13 @@ macro String.until()! do
   ! !
 end
 
+macro String.copy()! do
+  # src dst
+  over String.addr! v64 over String.addr! <-> ^64
+  over String.len! v64 over String.len! <-> ^64
+  <-> !
+end
+
 macro streq! do
   # lhs rhs eq
   1 # eq
