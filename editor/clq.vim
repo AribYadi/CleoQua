@@ -16,7 +16,7 @@ syn match clqKeyword /\v(\s|^)@<=syscall[0-6](\s|$)@=/
 syn keyword clqTodo TODO NOTE WARN
 syn region clqComment start="#" end="$" contains=clqTodo
 
-syn match clqString /\v(\s|^)@<=".*"(\s|$)@=/
+syn region clqString start=/\v(\s|^)@<="/ skip=/\v\\./ end=/\v"(\s|$)@=/
 syn match clqCharacter /\v(\s|^)@<='.'(\s|$)@=/
 
 syn match clqInt /\v(\s|^)@<=-*[0-9]+(\s|$)@=/
