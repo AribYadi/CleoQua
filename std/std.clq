@@ -1,5 +1,46 @@
 load! "arm64.clq"
 
+macro AT_FDCWD!    do -100   end
+
+macro O_RDONLY!    do 0      end
+macro O_WRONLY!    do 1      end
+macro O_RDWR!      do 2      end
+macro O_CREAT!     do 64     end
+macro O_EXCL!      do 128    end
+macro O_NOCTTY!    do 256    end
+macro O_TRUNC!     do 512    end
+macro O_APPEND!    do 1024   end
+macro O_NONBLOCK!  do 2048   end
+macro O_DSYNC!     do 4096   end
+macro O_DIRECT!    do 16384  end
+macro O_LARGEFILE! do 32768  end
+macro O_DIRECTORY! do 65536  end
+macro O_NOFOLLOW!  do 131072 end
+macro O_NOATIME!   do 262144 end
+macro O_CLOEXEC!   do 524288 end
+
+macro PROT_READ! do 1 end
+macro PROT_WRITE! do 2 end
+macro PROT_EXEC! do 4 end
+macro PROT_SEM! do 8 end
+macro PROT_NONE! do 0 end
+macro PROT_GROWSDOWN! do 16777216 end
+macro PROT_GROWSUP! do 33554432 end
+
+macro MAP_SHARED! do 1 end
+macro MAP_PRIVATE! do 2 end
+macro MAP_SHARED_VALIDATE! do 3 end
+macro MAP_TYPE! do 15 end
+macro MAP_FIXED! do 16 end
+macro MAP_ANONYMOUS! do 32 end
+macro MAP_POPULATE! do 32768 end
+macro MAP_NONBLOCK! do 65536 end
+macro MAP_STACK! do 131072 end
+macro MAP_HUGETLB! do 262144 end
+macro MAP_SYNC! do 524288 end
+macro MAP_FIXED_NOREPLACE! do 1048576 end
+macro MAP_UNINITIALIZED! do 67108864 end
+
 macro stdin!  do 0 end
 macro stdout! do 1 end
 macro stderr! do 2 end
