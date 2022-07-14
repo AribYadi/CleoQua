@@ -96,8 +96,47 @@ macro v(String)! do
   <-> String.len! v64
 end
 
+macro String.until()! do
+  # src dst ch
+  2over String.addr! <-> String.addr! v64 ^64
+  over String.len! 0 ^64
+  while
+    2over ! if _ String.len! v64 0 <-> < do
+      String.addr! v64 v v(char)! over !=
+    else ! 0 end
+  do
+    2over String.len! _ v64 1 + ^64
+    _ String.len! _ v64 1 - ^64
+    String.addr! _ v64 1 + ^64
+  end
+  !
+  if over String.len! v64 0 <-> < do
+    over String.len! _ v64 1 - ^64
+    over String.addr! _ v64 1 + ^64
+  end
+  ! !
+end
+
+macro streq! do
+  # lhs rhs eq
+  1 # eq
+  while
+    if _ do 2over v(char)! 0 != <-> v(char)! 0 != &
+    else 0 end
+  do
+    ! 1 + <-> 1 +
+    over 1 - over 1 - v(char)! <-> v(char)! ==
+  end
+  if 2over v(char)! <-> v(char)! != do ! 0 end
+  <-> ! <-> !
+end
+
 macro nth_arg! do
   # n
   8 * argv + v64
+end
+
+macro v(char)! do
+  v 256 %
 end
 
