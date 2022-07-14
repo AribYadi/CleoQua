@@ -277,14 +277,6 @@ macro sys_pkey_alloc!             do 289  end
 macro sys_pkey_free!              do 290  end
 macro sys_statx!                  do 291  end
 
-macro strlen! do
-	# We mod the char with 256 because for some reason, atleast on my device, the char is not in the range 0 to 255
-	_ while _ v 256 % 0 != do
-		1 +
-	end
-	over -
-end
-
 macro sizeof(stat)!            do 128   end
 macro sizeof(stat.st_dev)!     do 8     end
 macro sizeof(stat.st_ino)!     do 8     end
