@@ -94,8 +94,11 @@ def update_file(path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  with open(rec_path, 'rb') as f:
-    argv = TestCase.read_argv(f)
+  try:
+    with open(rec_path, 'rb') as f:
+      argv = TestCase.read_argv(f)
+  except FileNotFoundError:
+    argv = []
 
   proc = subprocess.run(['./cleoqua', path, '-L', 'std'], capture_output = True)
   if proc.returncode != 0:
@@ -117,14 +120,14 @@ def test_file(continu: bool, path: str):
   exe_path = path[:-len(CLEOQUA_EXT)]
   rec_path = path[:-len(CLEOQUA_EXT)] + REC_EXT
 
-  with open(rec_path, 'rb') as f:
-    argv = TestCase.read_argv(f)
-
   if os.path.exists(rec_path):
     recorded = TestCase.read(rec_path)
   else:
     print(f'[WARN]: Record path for `{path}` not found. Skipping.')
     return
+
+  with open(rec_path, 'rb') as f:
+    argv = TestCase.read_argv(f)
 
   proc = subprocess.run(['./cleoqua', path, '-L', 'std'], capture_output = True)
   if proc.returncode != 0:
