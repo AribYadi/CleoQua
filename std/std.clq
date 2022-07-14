@@ -61,6 +61,14 @@ macro println! do
   stdout! 2over writeln! ! ! !
 end
 
+macro eprint! do
+  stderr! 2over write! ! ! !
+end
+
+macro eprintln! do
+  stderr! 2over writeln! ! ! !
+end
+
 # struct String {
 #   uint64_t addr;
 #   uint64_t len;
