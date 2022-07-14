@@ -80,3 +80,8 @@ macro v(String)! do
   <-> String.len! v64
 end
 
+macro nth_arg! do
+  # n
+  8 * argv + v64
+end
+
