@@ -1,0 +1,75 @@
+load! "std.clq"
+
+macro empty_string! do mem end
+empty_string! "" new(String)! !
+
+macro input!  do empty_string! sizeof(String)! + end
+macro line!   do input!        sizeof(String)! + end
+macro lexeme! do line!         sizeof(String)! + end
+macro tok!    do lexeme!       sizeof(String)! + end
+
+macro TT_EOF!   do 0             end
+macro TT_UNKWN! do TT_EOF!   1 + end
+macro TT_PLUS!  do TT_UNKWN! 1 + end
+macro TT_PUTD!  do TT_PLUS!  1 + end
+
+# struct Token {
+#   uint8_t type;
+#   struct String lexeme;
+# };
+macro sizeof(Token)! do 1 sizeof(String)! + end
+macro Token.type! do 0 + end
+macro Token.lexeme! do 1 + end
+
+macro new(Token)! do
+  # buf type lexeme
+  2over <-> Token.type! <-> ^ <->
+  2over <-> Token.lexeme! String.copy()! <-> ! !
+end
+
+macro update-lexeme()! do
+  # str
+  if line! String.len! v64 == 0 do
+    _ line! 10 String.until()!
+  end
+  line! lexeme! ' ' String.until()! !
+end
+
+macro next-tok()! do
+  # str
+  if
+    _ String.len! v64 0 ==
+    line! String.len! v64 0 ==
+  & do tok! TT_EOF! empty_string! new(Token)! !
+  else
+    _ update-lexeme()!
+
+    if line! String.len! v64 0 == do
+      _ line! String.copy()! !
+      _ String.len! 0 ^64
+    end
+
+    while lexeme! String.len! v64 0 == do
+      _ update-lexeme()!
+    end
+
+    tok!
+    if lexeme! "+" String.streq()! do TT_PLUS!
+    elif lexeme! "putd" String.streq()! do TT_PUTD!
+    else TT_UNKWN! end
+    lexeme! new(Token)! ! !
+  end
+end
+
+macro main! do
+  input! "123 123 123 + + putd" new(String)! !
+  input! next-tok()!
+  while tok! Token.type! v TT_EOF! != do
+     "TYPE: " print! tok! Token.type! v putd
+    " LEXEME: `" print! tok! Token.lexeme! v(String)! print! "`" println!
+    input! next-tok()!
+  end
+end
+
+main!
+
