@@ -105,6 +105,45 @@ end
 
 macro compile-to-arm64-asm()! do
   ".text" fd-writeln!
+
+  "putd:"                          fd-writeln!
+  "  stp x29, x30, [x28, -64]!"    fd-writeln!
+  "  mov w7, 0"                    fd-writeln!
+  "  mov x29, x28"                 fd-writeln!
+  "  tbz x0, #63, .L2"             fd-writeln!
+  "  neg x0, x0"                   fd-writeln!
+  "  mov w7, 1"                    fd-writeln!
+  ".L2:"                           fd-writeln!
+  "  mov x6, -3689348814741910324" fd-writeln!
+  "  add x1, x28, 16"              fd-writeln!
+  "  mov x2, 0"                    fd-writeln!
+  "  movk x6, 0xcccd, lsl 0"       fd-writeln!
+  ".L3:"                           fd-writeln!
+  "  umulh x4, x0, x6"             fd-writeln!
+  "  sub x5, x1, x2"               fd-writeln!
+  "  add x2, x2, 1"                fd-writeln!
+  "  lsr x4, x4, 3"                fd-writeln!
+  "  add x3, x4, x4, lsl 2"        fd-writeln!
+  "  sub x3, x0, x3, lsl 1"        fd-writeln!
+  "  mov x0, x4"                   fd-writeln!
+  "  add w3, w3, 48"               fd-writeln!
+  "  strb w3, [x5, 47]"            fd-writeln!
+  "  cbnz x4, .L3"                 fd-writeln!
+  "  cbz w7, .L4"                  fd-writeln!
+  "  sub x0, x1, x2"               fd-writeln!
+  "  add x2, x2, 1"                fd-writeln!
+  "  mov w3, 45"                   fd-writeln!
+  "  strb w3, [x0, 47]"            fd-writeln!
+  ".L4:"                           fd-writeln!
+  "  sub x1, x1, x2"               fd-writeln!
+  "  mov w0, 1"                    fd-writeln!
+  "  add x1, x1, 48"               fd-writeln!
+  "  mov x8, 64"                   fd-writeln!
+  "  svc 0"                        fd-writeln!
+  "  ldp x29, x30, [x28], 64"      fd-writeln!
+  "  ret"                          fd-writeln!
+  ""                               fd-writeln!
+
   ".global _start" fd-writeln!
   "_start:" fd-writeln!
   "  mov x28, sp" fd-writeln!
@@ -118,12 +157,16 @@ macro compile-to-arm64-asm()! do
       "  sub sp, x28, #8" fd-writeln!
       "  str x0, [x28, #-8]!" fd-writeln!
     elif _ TT_PLUS! == do
-        "  // <-- plus -->" fd-writeln!
-        "  ldr x0, [x28], #8" fd-writeln!
-        "  ldr x1, [x28], #8" fd-writeln!
-        "  add x0, x0, x1" fd-writeln!
-        "  sub sp, x28, #8" fd-writeln!
-        "  str x0, [x28, #-8]!" fd-writeln!
+      "  // <-- plus -->" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  ldr x1, [x28], #8" fd-writeln!
+      "  add x0, x0, x1" fd-writeln!
+      "  sub sp, x28, #8" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_PUTD! == do
+      "  // <-- putd -->" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  bl putd" fd-writeln!
     else
       "TODO: unimplemented!" eprintln!
       101 sys_exit! syscall3
@@ -139,7 +182,7 @@ macro compile-to-arm64-asm()! do
 end
 
 macro main! do
-  input! "123 123 +" new(String)! !
+  input! "123 123 + putd" new(String)! !
   out-fd! 1 ^64
   compile-to-arm64-asm()!
 end
