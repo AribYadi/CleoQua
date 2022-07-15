@@ -353,7 +353,7 @@ fn process_macros(
         while let Some(token) = tokens.pop() {
           match token.type_ {
             TokenType::End if block_depth == 0 => break,
-            TokenType::End => block_depth -= 1,
+            TokenType::End | TokenType::Elif => block_depth -= 1,
             TokenType::Do => block_depth += 1,
             _ => (),
           }
