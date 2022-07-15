@@ -3,17 +3,13 @@ load! "std.clq"
 macro empty_string! do mem end
 empty_string! "" new(String)! !
 
-macro input!   do empty_string! sizeof(String)! + end
-macro line!    do input!        sizeof(String)! + end
-macro lexeme!  do line!         sizeof(String)! + end
-macro tok!     do lexeme!       sizeof(String)! + end
-macro tmp-str! do tok!          sizeof(Token)!  + end
-macro out-fd!  do tmp-str!      sizeof(String)! + end
-
 macro TT_EOF!   do 0            end
 macro TT_INT!   do TT_EOF!  1 + end
 macro TT_PLUS!  do TT_INT!  1 + end
 macro TT_PUTD!  do TT_PLUS! 1 + end
+macro TT_IF!    do TT_PUTD! 1 + end
+macro TT_DO!    do TT_IF!   1 + end
+macro TT_END!   do TT_DO!   1 + end
 
 # struct Token {
 #   uint8_t type;
@@ -29,8 +25,16 @@ macro new(Token)! do
   2over <-> Token.lexeme! String.copy()! <-> ! !
 end
 
-macro fd-write!   do out-fd! v 2over write!   end
-macro fd-writeln! do out-fd! v 2over writeln! end
+macro Token.copy()! do
+  # src dst
+  over Token.type! v over Token.type! <-> ^
+  over Token.lexeme! over Token.lexeme! String.copy()! !
+  <-> !
+end
+
+macro fd-write!   do out-fd! v 2over write!   ! ! ! end
+macro fd-writeln! do out-fd! v 2over writeln! ! ! ! end
+macro fd-putd!    do out-fd! v  over fputd        ! end
 
 macro update-lexeme()! do
   # str
@@ -39,6 +43,12 @@ macro update-lexeme()! do
   end
   line! lexeme! ' ' String.until()! !
 end
+
+macro input!   do empty_string! sizeof(String)! + end
+macro line!    do input!        sizeof(String)! + end
+macro lexeme!  do line!         sizeof(String)! + end
+macro tok!     do lexeme!       sizeof(String)! + end
+macro tmp-str! do tok!          sizeof(Token)!  + end
 
 macro is-int()! do
   # str
@@ -95,6 +105,9 @@ macro next-tok()! do
     if lexeme! is-int()! do TT_INT!
     elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
+    elif lexeme! "if" String.streq()! do TT_IF!
+    elif lexeme! "do" String.streq()! do TT_DO!
+    elif lexeme! "end" String.streq()! do TT_END!
     else
       "TODO: write an error for unknown token!" eprintln!
       101 sys_exit! syscall3
@@ -102,6 +115,46 @@ macro next-tok()! do
     lexeme! new(Token)! ! !
   end
 end
+
+# struct Block {
+#   struct Token token;
+#   uint64_t jmp;
+# };
+macro sizeof(Block)! do sizeof(Token)! 8 + end
+macro Block.token! do 0 + end
+macro Block.jmp! do sizeof(Token)! + end
+
+macro BLOCK_MAX_DEPTH! do 1024 end
+
+macro out-fd!          do tmp-str! sizeof(String)!                       + end
+
+macro block-stack!     do out-fd! 1                                      + end
+macro block-stack-len! do block-stack! sizeof(Block)! BLOCK_MAX_DEPTH! * + end
+
+macro block-push()! do
+  # token jmp
+  if BLOCK_MAX_DEPTH! block-stack-len! v64 < do
+    "TODO: write an error too many nested blocks!" eprintln!
+    101 sys_exit! syscall3
+  end
+
+  block-stack-len! _ v64 1 + ^64
+  block-last()!
+
+  over over Block.jmp! <-> ^64 <-> !
+  over over Block.token! Token.copy()! ! ! !
+end
+
+macro block-last()! do
+  block-stack! block-stack-len! v64 1 - sizeof(Block)! * +
+end
+
+macro block-pop()! do
+  block-last()!
+  block-stack-len! _ v64 1 - ^64
+end
+
+macro jmp-tracker! do block-stack-len! 8 + end
 
 macro compile-to-arm64-asm()! do
   ".text" fd-writeln!
@@ -136,7 +189,7 @@ macro compile-to-arm64-asm()! do
   "  strb w3, [x0, 47]"            fd-writeln!
   ".L4:"                           fd-writeln!
   "  sub x1, x1, x2"               fd-writeln!
-  "  mov w0, 1"                    fd-writeln!
+  "  mov x0, x20"                  fd-writeln!
   "  add x1, x1, 48"               fd-writeln!
   "  mov x8, 64"                   fd-writeln!
   "  svc 0"                        fd-writeln!
@@ -166,9 +219,43 @@ macro compile-to-arm64-asm()! do
     elif _ TT_PUTD! == do
       "  // <-- putd -->" fd-writeln!
       "  ldr x0, [x28], #8" fd-writeln!
+      "  mov x20, #1" fd-writeln!
       "  bl putd" fd-writeln!
+    elif _ TT_IF! == do
+      "  // <-- if -->" fd-writeln!
+
+      jmp-tracker! _ v64 1 + ^64
+      tok! jmp-tracker! v64 block-push()!
+    elif _ TT_DO! == do
+      if block-stack-len! 0 == do
+        "TODO: write an error for a lone `do`!" eprintln!
+        101 sys_exit! syscall3
+      end
+
+      "  // <-- do -->" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  cmp x0, 1" fd-writeln!
+      "  b.ne jmp_" fd-write! block-last()! Block.jmp! v64 fd-putd! "" fd-writeln!
+    elif _ TT_END! == do
+      "  // <-- end -->" fd-writeln!
+
+      if block-stack-len! 0 == do
+        "TODO: write an error for a lone `end`!" eprintln!
+        101 sys_exit! syscall3
+      end
+      block-pop()!
+
+      _ Block.token! Token.type! v
+      # End for ifs doesn't really do anything special
+      if _ TT_IF! == do
+      else
+        "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
+        101 sys_exit! syscall3
+      end !
+
+      "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
     else
-      "TODO: unimplemented!" eprintln!
+      "Reached unreachable in `compile-to-arm64-asm()!`" eprintln!
       101 sys_exit! syscall3
     end !
 
@@ -182,8 +269,8 @@ macro compile-to-arm64-asm()! do
 end
 
 macro main! do
-  input! "123 123 + putd" new(String)! !
-  out-fd! 1 ^64
+  input! "if 1 do 1 putd end" new(String)! !
+  out-fd! 1 ^
   compile-to-arm64-asm()!
 end
 
