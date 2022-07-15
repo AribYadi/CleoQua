@@ -3,14 +3,16 @@ load! "std.clq"
 macro empty_string! do mem end
 empty_string! "" new(String)! !
 
-macro input!  do empty_string! sizeof(String)! + end
-macro line!   do input!        sizeof(String)! + end
-macro lexeme! do line!         sizeof(String)! + end
-macro tok!    do lexeme!       sizeof(String)! + end
+macro input!   do empty_string! sizeof(String)! + end
+macro line!    do input!        sizeof(String)! + end
+macro lexeme!  do line!         sizeof(String)! + end
+macro tok!     do lexeme!       sizeof(String)! + end
+macro tmp-str! do tok!          sizeof(Token)! + end
 
 macro TT_EOF!   do 0             end
 macro TT_UNKWN! do TT_EOF!   1 + end
-macro TT_PLUS!  do TT_UNKWN! 1 + end
+macro TT_INT!   do TT_UNKWN! 1 + end
+macro TT_PLUS!  do TT_INT!   1 + end
 macro TT_PUTD!  do TT_PLUS!  1 + end
 
 # struct Token {
@@ -35,6 +37,39 @@ macro update-lexeme()! do
   line! lexeme! ' ' String.until()! !
 end
 
+macro is-int()! do
+  # str
+  tmp-str! String.copy()!
+  2 # contain int
+
+  # Skip `-`s
+  while over
+    if _ String.len! v64 0 != do
+      String.addr! v64 v(char)! '-' ==
+    else ! 0 end
+  do
+    over String.addr! _ v64 1 + ^64
+    over String.len!  _ v64 1 - ^64
+  end
+
+  # Check for integers
+  while
+    over String.len! v64 0 !=
+    over _ 2 ==
+           1 == |
+  & do
+    ! _
+    String.addr! v64 v(char)!
+    _ '9' 1 + <
+    <-> '0' 1 - <-> < &
+
+    over String.addr! _ v64 1 + ^64
+    over String.len!  _ v64 1 - ^64
+  end
+
+  <-> ! 1 ==
+end
+
 macro next-tok()! do
   # str
   if
@@ -54,7 +89,8 @@ macro next-tok()! do
     end
 
     tok!
-    if lexeme! "+" String.streq()! do TT_PLUS!
+    if lexeme! is-int()! do TT_INT!
+    elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     else TT_UNKWN! end
     lexeme! new(Token)! ! !
