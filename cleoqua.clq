@@ -9,7 +9,8 @@ macro TT_PLUS!  do TT_INT!  1 + end
 macro TT_PUTD!  do TT_PLUS! 1 + end
 macro TT_IF!    do TT_PUTD! 1 + end
 macro TT_DO!    do TT_IF!   1 + end
-macro TT_END!   do TT_DO!   1 + end
+macro TT_ELSE!  do TT_DO!   1 + end
+macro TT_END!   do TT_ELSE! 1 + end
 
 # struct Token {
 #   uint8_t type;
@@ -107,6 +108,7 @@ macro next-tok()! do
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
+    elif lexeme! "else" String.streq()! do TT_ELSE!
     elif lexeme! "end" String.streq()! do TT_END!
     else
       "TODO: write an error for unknown token!" eprintln!
@@ -227,15 +229,38 @@ macro compile-to-arm64-asm()! do
       jmp-tracker! _ v64 1 + ^64
       tok! jmp-tracker! v64 block-push()!
     elif _ TT_DO! == do
+      "  // <-- do -->" fd-writeln!
+
       if block-stack-len! 0 == do
         "TODO: write an error for a lone `do`!" eprintln!
         101 sys_exit! syscall3
       end
 
-      "  // <-- do -->" fd-writeln!
       "  ldr x0, [x28], #8" fd-writeln!
       "  cmp x0, 1" fd-writeln!
       "  b.ne jmp_" fd-write! block-last()! Block.jmp! v64 fd-putd! "" fd-writeln!
+    elif _ TT_ELSE! == do
+      "  // <-- else -->" fd-writeln!
+
+      if block-stack-len! 0 == do
+        "TODO: write an error for a lone `else`!" eprintln!
+        101 sys_exit! syscall3
+      end
+      block-pop()!
+
+      _ Block.token! Token.type! v
+      if _ TT_IF! == do !
+        # Jump to end if `else` was reached
+        "  b jmp_" fd-write! jmp-tracker! v64 1 + fd-putd! "" fd-writeln!
+        # Otherwise we jump to this label if `if`'s condition was falsy
+        "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
+      else !
+        "TODO: write an error for an incompatible `else`" eprintln!
+        101 sys_exit! syscall3
+      end
+
+      jmp-tracker! _ v64 1 + ^64
+      tok! jmp-tracker! v64 block-push()!
     elif _ TT_END! == do
       "  // <-- end -->" fd-writeln!
 
@@ -246,18 +271,19 @@ macro compile-to-arm64-asm()! do
       block-pop()!
 
       _ Block.token! Token.type! v
-      # End for ifs doesn't really do anything special
-      if _ TT_IF! == do
-      else
+      # End for ifs and elses doesn't really do anything special
+      if _ TT_IF! == do !
+      elif _ TT_ELSE! == do !
+      else !
         "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
         101 sys_exit! syscall3
-      end !
+      end
 
       "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
     else
       "Reached unreachable in `compile-to-arm64-asm()!`" eprintln!
       101 sys_exit! syscall3
-    end !
+    end
 
     input! next-tok()!
   end
@@ -269,7 +295,7 @@ macro compile-to-arm64-asm()! do
 end
 
 macro main! do
-  input! "if 1 do 1 putd end" new(String)! !
+  input! "if 0 do 1 else 2 end putd" new(String)! !
   out-fd! 1 ^
   compile-to-arm64-asm()!
 end
