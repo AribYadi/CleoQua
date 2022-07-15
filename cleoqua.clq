@@ -7,13 +7,13 @@ macro input!   do empty_string! sizeof(String)! + end
 macro line!    do input!        sizeof(String)! + end
 macro lexeme!  do line!         sizeof(String)! + end
 macro tok!     do lexeme!       sizeof(String)! + end
-macro tmp-str! do tok!          sizeof(Token)! + end
+macro tmp-str! do tok!          sizeof(Token)!  + end
+macro out-fd!  do tmp-str!      sizeof(String)! + end
 
-macro TT_EOF!   do 0             end
-macro TT_UNKWN! do TT_EOF!   1 + end
-macro TT_INT!   do TT_UNKWN! 1 + end
-macro TT_PLUS!  do TT_INT!   1 + end
-macro TT_PUTD!  do TT_PLUS!  1 + end
+macro TT_EOF!   do 0            end
+macro TT_INT!   do TT_EOF!  1 + end
+macro TT_PLUS!  do TT_INT!  1 + end
+macro TT_PUTD!  do TT_PLUS! 1 + end
 
 # struct Token {
 #   uint8_t type;
@@ -28,6 +28,9 @@ macro new(Token)! do
   2over <-> Token.type! <-> ^ <->
   2over <-> Token.lexeme! String.copy()! <-> ! !
 end
+
+macro fd-write!   do out-fd! v 2over write!   end
+macro fd-writeln! do out-fd! v 2over writeln! end
 
 macro update-lexeme()! do
   # str
@@ -92,19 +95,47 @@ macro next-tok()! do
     if lexeme! is-int()! do TT_INT!
     elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
-    else TT_UNKWN! end
+    else
+      "TODO: write an error for unknown token!" eprintln!
+      101 sys_exit! syscall3
+    end
     lexeme! new(Token)! ! !
   end
 end
 
-macro main! do
-  input! "123 123 123 + + putd" new(String)! !
+macro compile-to-arm64-asm()! do
+  ".text" fd-writeln!
+  ".global _start" fd-writeln!
+  "_start:" fd-writeln!
+  "  mov x28, sp" fd-writeln!
+
   input! next-tok()!
   while tok! Token.type! v TT_EOF! != do
-     "TYPE: " print! tok! Token.type! v putd
-    " LEXEME: `" print! tok! Token.lexeme! v(String)! print! "`" println!
+    tok! Token.type! v
+    if _ TT_INT! do
+      "  // <-- int -->" fd-writeln!
+      "  mov x0, " fd-write! tok! Token.lexeme! v(String)! fd-writeln!
+      "  sub sp, x28, #8" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
+    else
+      !
+      "TODO: unimplemented!" eprintln!
+      101 sys_exit! syscall3
+    end
+
     input! next-tok()!
   end
+
+  "  // <-- exit -->" fd-writeln!
+  "  mov x, 93" fd-writeln!
+  "  mov x0, 0" fd-writeln!
+  "  svc 0" fd-writeln!
+end
+
+macro main! do
+  input! "123 123" new(String)! !
+  out-fd! 1 ^64
+  compile-to-arm64-asm()!
 end
 
 main!
