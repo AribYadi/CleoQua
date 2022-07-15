@@ -336,14 +336,51 @@ macro compile-to-arm64-asm()! do
   "  svc 0" fd-writeln!
 end
 
+macro usage()! do
+  "[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq" println!
+  "[INFO]: OPTIONS:" println!
+  "[INFO]:   --help,         -h: Prints this help message." println!
+end
+
+macro file-path! do jmp-tracker! 8 + end
+
 macro main! do
-  if argc 1 - 0 == do
-    "TODO: write an error for no given path!" eprintln!
+  1 while _ argc < do
+    tmp-str! over nth_arg! strlen! new(String)!
+
+    if tmp-str! "-" String.startswith()! do
+      tmp-str! String.addr! _ v64 1 + ^64
+      tmp-str! String.len! _ v64 1 - ^64
+      if tmp-str! "-" String.startswith()! do
+        tmp-str! String.addr! _ v64 1 + ^64
+        tmp-str! String.len! _ v64 1 - ^64
+      end
+
+      if
+        tmp-str! "help" String.streq()!
+        tmp-str! "h" String.streq()!
+      | do
+        usage()!
+        0 sys_exit! syscall1
+      else
+        "TODO: write an error for unknown option!" eprintln!
+        101 sys_exit! syscall3
+      end
+    elif file-path! String.len! v64 0 == do
+      tmp-str! file-path! String.copy()! !
+    else
+      "TODO: write an error for unknown arg!" eprintln!
+      101 sys_exit! syscall3
+    end
+    1 +
+  end
+
+  if file-path! String.len! v64 0 == do
+    "TODO: write an error for no given file!" eprintln!
     101 sys_exit! syscall3
   end
 
-  1 nth_arg! open-file()!
-
+  file-path! String.addr! v64 open-file()!
   out-fd! 1 ^
   compile-to-arm64-asm()!
 end
