@@ -112,28 +112,34 @@ macro compile-to-arm64-asm()! do
   input! next-tok()!
   while tok! Token.type! v TT_EOF! != do
     tok! Token.type! v
-    if _ TT_INT! do
+    if _ TT_INT! == do
       "  // <-- int -->" fd-writeln!
       "  mov x0, " fd-write! tok! Token.lexeme! v(String)! fd-writeln!
       "  sub sp, x28, #8" fd-writeln!
       "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_PLUS! == do
+        "  // <-- plus -->" fd-writeln!
+        "  ldr x0, [x28], #8" fd-writeln!
+        "  ldr x1, [x28], #8" fd-writeln!
+        "  add x0, x0, x1" fd-writeln!
+        "  sub sp, x28, #8" fd-writeln!
+        "  str x0, [x28, #-8]!" fd-writeln!
     else
-      !
       "TODO: unimplemented!" eprintln!
       101 sys_exit! syscall3
-    end
+    end !
 
     input! next-tok()!
   end
 
   "  // <-- exit -->" fd-writeln!
-  "  mov x, 93" fd-writeln!
+  "  mov x8, 93" fd-writeln!
   "  mov x0, 0" fd-writeln!
   "  svc 0" fd-writeln!
 end
 
 macro main! do
-  input! "123 123" new(String)! !
+  input! "123 123 +" new(String)! !
   out-fd! 1 ^64
   compile-to-arm64-asm()!
 end
