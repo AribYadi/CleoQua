@@ -49,6 +49,7 @@ enum TokenType {
   ArgV,
   ArgC,
 
+  FPutD,
   PutD,
   PutC,
 
@@ -241,6 +242,7 @@ fn lex(origin: &str, s: &str) -> Vec<Token> {
         "argv" => TokenType::ArgV,
         "argc" => TokenType::ArgC,
 
+        "fputd" => TokenType::FPutD,
         "putd" => TokenType::PutD,
         "putc" => TokenType::PutC,
 
@@ -492,7 +494,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   let _ = writeln!(s, "  strb w3, [x0, 47]");
   let _ = writeln!(s, ".L4:");
   let _ = writeln!(s, "  sub x1, x1, x2");
-  let _ = writeln!(s, "  mov w0, 1");
+  let _ = writeln!(s, "  mov x0, x20");
   let _ = writeln!(s, "  add x1, x1, 48");
   let _ = writeln!(s, "  mov x8, 64");
   let _ = writeln!(s, "  svc 0");
@@ -732,9 +734,16 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
 
+      TokenType::FPutD => {
+        let _ = writeln!(s, "  // <-- fputd -->");
+        let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  ldr x20, [x28], #8");
+        let _ = writeln!(s, "  bl putd");
+      },
       TokenType::PutD => {
         let _ = writeln!(s, "  // <-- putd -->");
         let _ = writeln!(s, "  ldr x0, [x28], #8");
+        let _ = writeln!(s, "  mov x20, #1");
         let _ = writeln!(s, "  bl putd");
       },
       TokenType::PutC => {
