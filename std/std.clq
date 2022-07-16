@@ -160,6 +160,28 @@ macro String.startswith()! do
   end
 end
 
+macro String.endswith()! do
+  # lhs rhs len
+  if
+    2over ! String.len! v64 over over <
+    2over ==
+  | <-> ! do
+    2over ! _ String.addr! v64 <-> String.len! v64 + over - # lhs.addr
+    2over
+    1 # ret
+    while over 0 <-> < do
+      ! 1 -
+      2over ! v(char)! # lhs
+      2over + v(char)! # rhs
+      ==
+    end
+    <-> ! <-> ! <-> ! <-> ! <-> ! <-> !
+  else
+    ! ! !
+    0
+  end
+end
+
 macro streq! do
   # lhs rhs
   1 # eq
