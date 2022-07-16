@@ -4,7 +4,8 @@ macro empty_string! do mem end
 empty_string! "" new(String)! !
 
 macro TT_EOF!   do 0            end
-macro TT_INT!   do TT_EOF!  1 + end
+macro TT_COMM!  do TT_EOF!  1 + end
+macro TT_INT!   do TT_COMM! 1 + end
 macro TT_PLUS!  do TT_INT!  1 + end
 macro TT_PUTD!  do TT_PLUS! 1 + end
 macro TT_IF!    do TT_PUTD! 1 + end
@@ -145,13 +146,17 @@ macro next-tok()! do
     & do _ update-lexeme()! end
 
     tok!
-    if lexeme! is-int()! do TT_INT!
+    if lexeme! "#" String.startswith()! do
+      line! String.len! 0 ^64
+      TT_COMM!
+    elif lexeme! is-int()! do TT_INT!
     elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
     elif lexeme! "else" String.streq()! do TT_ELSE!
     elif lexeme! "end" String.streq()! do TT_END!
+    elif lexeme! String.len! v64 0 == do TT_EOF!
     else
       "TODO: write an error for unknown token!" eprintln!
       101 sys_exit! syscall3
@@ -248,7 +253,8 @@ macro compile-to-arm64-asm()! do
   filebuf! next-tok()!
   while tok! Token.type! v TT_EOF! != do
     tok! Token.type! v
-    if _ TT_INT! == do
+    if _ TT_COMM! == do
+    elif _ TT_INT! == do
       "  // <-- int -->" fd-writeln!
       "  mov x0, " fd-write! tok! Token.lexeme! v(String)! fd-writeln!
       "  sub sp, x28, #8" fd-writeln!
