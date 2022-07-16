@@ -3,15 +3,19 @@ load! "std.clq"
 macro empty_string! do mem end
 empty_string! "" new(String)! !
 
-macro TT_EOF!   do 0            end
-macro TT_COMM!  do TT_EOF!  1 + end
-macro TT_INT!   do TT_COMM! 1 + end
-macro TT_PLUS!  do TT_INT!  1 + end
-macro TT_PUTD!  do TT_PLUS! 1 + end
-macro TT_IF!    do TT_PUTD! 1 + end
-macro TT_DO!    do TT_IF!   1 + end
-macro TT_ELSE!  do TT_DO!   1 + end
-macro TT_END!   do TT_ELSE! 1 + end
+macro TT_EOF!   do 0             end
+macro TT_COMM!  do TT_EOF!   1 + end
+macro TT_INT!   do TT_COMM!  1 + end
+macro TT_PLUS!  do TT_INT!   1 + end
+macro TT_MINUS! do TT_PLUS!  1 + end
+macro TT_LT!    do TT_MINUS! 1 + end
+macro TT_DUP!   do TT_LT!    1 + end
+macro TT_PUTD!  do TT_DUP!   1 + end
+macro TT_IF!    do TT_PUTD!  1 + end
+macro TT_DO!    do TT_IF!    1 + end
+macro TT_WHILE! do TT_DO!    1 + end
+macro TT_ELSE!  do TT_WHILE! 1 + end
+macro TT_END!   do TT_ELSE!  1 + end
 
 # struct Token {
 #   uint8_t type;
@@ -66,7 +70,7 @@ macro open-file()! do
 
   # Memory map the file's content into `filebuf!`
   0                          over # addr
-  statbuf! stat.st_size! v64 <->  # lengthint
+  statbuf! stat.st_size! v64 <->  # lenlthint
   PROT_READ!                 <->  # prot
   MAP_PRIVATE!                    # flag
   <->                             # fd
@@ -151,9 +155,13 @@ macro next-tok()! do
       TT_COMM!
     elif lexeme! is-int()! do TT_INT!
     elif lexeme! "+" String.streq()! do TT_PLUS!
+    elif lexeme! "-" String.streq()! do TT_MINUS!
+    elif lexeme! "<" String.streq()! do TT_LT!
+    elif lexeme! "_" String.streq()! do TT_DUP!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
+    elif lexeme! "while" String.streq()! do TT_WHILE!
     elif lexeme! "else" String.streq()! do TT_ELSE!
     elif lexeme! "end" String.streq()! do TT_END!
     elif lexeme! String.len! v64 0 == do TT_EOF!
@@ -266,6 +274,27 @@ macro compile-to-arm64-asm()! do
       "  add x0, x0, x1" fd-writeln!
       "  sub sp, x28, #8" fd-writeln!
       "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_MINUS! == do
+      "  // <-- minus -->" fd-writeln!
+      "  ldr x1, [x28], #8" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  sub x0, x0, x1" fd-writeln!
+      "  sub sp, x28, #8" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_LT! == do
+      "  // <-- less than -->" fd-writeln!
+      "  ldr x1, [x28], #8" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  cmp x0, x1" fd-writeln!
+      "  cset x0, lt" fd-writeln!
+      "  sub sp, x28, #8" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_DUP! == do
+      "  // <-- dup -->" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  sub sp, x28, #16" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
     elif _ TT_PUTD! == do
       "  // <-- putd -->" fd-writeln!
       "  ldr x0, [x28], #8" fd-writeln!
@@ -287,6 +316,15 @@ macro compile-to-arm64-asm()! do
       "  ldr x0, [x28], #8" fd-writeln!
       "  cmp x0, 1" fd-writeln!
       "  b.ne jmp_" fd-write! block-last()! Block.jmp! v64 fd-putd! "" fd-writeln!
+    elif _ TT_WHILE! == do
+      "  // <-- while -->" fd-writeln!
+
+      # We create a new label for `end` to jump to
+      jmp-tracker! _ v64 1 + ^64
+      "jmp_" fd-write! jmp-tracker! v64 fd-putd! ":" fd-writeln!
+      jmp-tracker! _ v64 1 + ^64
+
+      tok! jmp-tracker! v64 block-push()!
     elif _ TT_ELSE! == do
       "  // <-- else -->" fd-writeln!
 
@@ -322,6 +360,8 @@ macro compile-to-arm64-asm()! do
       # End for ifs and elses doesn't really do anything special
       if _ TT_IF! == do !
       elif _ TT_ELSE! == do !
+      elif _ TT_WHILE! == do !
+        "  b jmp_" fd-write! jmp-tracker! v64 1 - fd-putd! "" fd-writeln!
       else !
         "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
         101 sys_exit! syscall3
@@ -331,7 +371,7 @@ macro compile-to-arm64-asm()! do
     else
       "Reached unreachable in `compile-to-arm64-asm()!`" eprintln!
       101 sys_exit! syscall3
-    end
+    end !
 
     filebuf! next-tok()!
   end

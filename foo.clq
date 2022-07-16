@@ -1,4 +1,5 @@
-# This is a comment
-123 123 + putd # This is also a comment
-400 20  + # putd
+0 while _ 10 < do
+  _ putd
+  1 +
+end
 
