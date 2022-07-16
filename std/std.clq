@@ -19,6 +19,19 @@ macro O_NOFOLLOW!  do 131072 end
 macro O_NOATIME!   do 262144 end
 macro O_CLOEXEC!   do 524288 end
 
+macro S_IRWXU! do 448 end
+macro S_IRUSR! do 256 end
+macro S_IWUSR! do 128 end
+macro S_IXUSR! do 64 end
+macro S_IRWXG! do 56 end
+macro S_IRGRP! do 32 end
+macro S_IWGRP! do 16 end
+macro S_IXGRP! do 8 end
+macro S_IRWXO! do 7 end
+macro S_IROTH! do 4 end
+macro S_IWOTH! do 2 end
+macro S_IXOTH! do 1 end
+
 macro PROT_READ! do 1 end
 macro PROT_WRITE! do 2 end
 macro PROT_EXEC! do 4 end
