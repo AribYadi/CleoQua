@@ -145,7 +145,10 @@ end
 
 macro String.startswith()! do
   # lhs rhs len
-  if 2over ! String.len! v64 over <-> < do
+  if
+    2over ! String.len! v64 over over <
+    2over ==
+  | <-> ! do
     1 # ret
     while over 0 <-> < do
       ! 1 -
