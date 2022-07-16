@@ -407,7 +407,7 @@ macro main! do
 
   S_IRUSR!
   S_IWUSR! | # mode
-  S_IRGRP! | # file perms: rw-r--r--
+  S_IRGRP! | # file perms: -rw-r--r--
   S_IROTH! |
 
   sys_openat! syscall4
