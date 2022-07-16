@@ -888,8 +888,11 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
         };
 
         match block_type {
-          // End for ifs, elifs, and elses doesn't really do anything special
-          TokenType::If | TokenType::Else | TokenType::Elif => (),
+          // End for ifs and elses doesn't really do anything special
+          TokenType::If | TokenType::Else => (),
+          TokenType::Elif => {
+            let _ = writeln!(s, "jmp_{}:", jmp + 1);
+          },
 
           TokenType::While => {
             let _ = writeln!(s, "  b jmp_{}", jmp - 1);
