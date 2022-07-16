@@ -56,7 +56,7 @@ macro open-file()! do
 
   if _ 0 < do
     "TODO: write an error for not being able to open the file!" eprintln!
-    101 sys_exit! syscall3
+    101 sys_exit! syscall1
   end
 
   # Get file info
@@ -65,7 +65,7 @@ macro open-file()! do
     statbuf! # buf
   sys_fstat! syscall2 0 < do
     "TODO: write an error for not being able to get file information!" eprintln!
-    101 sys_exit! syscall3
+    101 sys_exit! syscall1
   end
 
   # Memory map the file's content into `filebuf!`
@@ -79,7 +79,7 @@ macro open-file()! do
 
   if _ 0 < do
     "TODO: write an error for not being able to map file!" eprintln!
-    101 sys_exit! syscall3
+    101 sys_exit! syscall1
   end
 
   filebuf! <-> statbuf! stat.st_size! v64 new(String)! !
@@ -167,7 +167,7 @@ macro next-tok()! do
     elif lexeme! String.len! v64 0 == do TT_EOF!
     else
       "TODO: write an error for unknown token!" eprintln!
-      101 sys_exit! syscall3
+      101 sys_exit! syscall1
     end
     lexeme! new(Token)! ! !
   end
@@ -192,7 +192,7 @@ macro block-push()! do
   # token jmp
   if BLOCK_MAX_DEPTH! block-stack-len! v64 < do
     "TODO: write an error too many nested blocks!" eprintln!
-    101 sys_exit! syscall3
+    101 sys_exit! syscall1
   end
 
   block-stack-len! _ v64 1 + ^64
@@ -310,7 +310,7 @@ macro compile-to-arm64-asm()! do
 
       if block-stack-len! 0 == do
         "TODO: write an error for a lone `do`!" eprintln!
-        101 sys_exit! syscall3
+        101 sys_exit! syscall1
       end
 
       "  ldr x0, [x28], #8" fd-writeln!
@@ -330,7 +330,7 @@ macro compile-to-arm64-asm()! do
 
       if block-stack-len! 0 == do
         "TODO: write an error for a lone `else`!" eprintln!
-        101 sys_exit! syscall3
+        101 sys_exit! syscall1
       end
       block-pop()!
 
@@ -342,7 +342,7 @@ macro compile-to-arm64-asm()! do
         "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
       else !
         "TODO: write an error for an incompatible `else`" eprintln!
-        101 sys_exit! syscall3
+        101 sys_exit! syscall1
       end
 
       jmp-tracker! _ v64 1 + ^64
@@ -352,7 +352,7 @@ macro compile-to-arm64-asm()! do
 
       if block-stack-len! 0 == do
         "TODO: write an error for a lone `end`!" eprintln!
-        101 sys_exit! syscall3
+        101 sys_exit! syscall1
       end
       block-pop()!
 
@@ -364,13 +364,13 @@ macro compile-to-arm64-asm()! do
         "  b jmp_" fd-write! jmp-tracker! v64 1 - fd-putd! "" fd-writeln!
       else !
         "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
-        101 sys_exit! syscall3
+        101 sys_exit! syscall1
       end
 
       "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
     else
       "Reached unreachable in `compile-to-arm64-asm()!`" eprintln!
-      101 sys_exit! syscall3
+      101 sys_exit! syscall1
     end !
 
     filebuf! next-tok()!
@@ -422,23 +422,23 @@ macro main! do
         0 sys_exit! syscall1
       else
         "TODO: write an error for unknown option!" eprintln!
-        101 sys_exit! syscall3
+        101 sys_exit! syscall1
       end
     elif file-path! String.len! v64 0 == do
       tmp-str! file-path! String.copy()! !
     else
       "TODO: write an error for unknown arg!" eprintln!
-      101 sys_exit! syscall3
+      101 sys_exit! syscall1
     end
     1 +
   end
 
   if file-path! String.len! v64 0 == do
     "TODO: write an error for no given file!" eprintln!
-    101 sys_exit! syscall3
+    101 sys_exit! syscall1
   elif file-path! ".clq" String.endswith()! 0 == do
     "TODO: write an error for file with unknown extension!" eprintln!
-    101 sys_exit! syscall3
+    101 sys_exit! syscall1
   end
 
   get-out-path()!
@@ -463,7 +463,7 @@ macro main! do
   compile-to-arm64-asm()!
 
   # Close out file
-  out-fd! v64 sys_exit! syscall1
+  out-fd! v64 sys_close! syscall1
 end
 
 main!
