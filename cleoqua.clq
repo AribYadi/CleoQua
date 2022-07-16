@@ -33,9 +33,9 @@ macro Token.copy()! do
   <-> !
 end
 
-macro fd-write!   do out-fd! v 2over write!   ! ! ! end
-macro fd-writeln! do out-fd! v 2over writeln! ! ! ! end
-macro fd-putd!    do out-fd! v  over fputd        ! end
+macro fd-write!   do out-fd! v64 2over write!   ! ! ! end
+macro fd-writeln! do out-fd! v64 2over writeln! ! ! ! end
+macro fd-putd!    do out-fd! v64  over fputd        ! end
 
 macro statbuf! do empty_string! sizeof(String)! + end
 macro filebuf! do statbuf!      sizeof(stat)!   + end
@@ -172,7 +172,7 @@ macro BLOCK_MAX_DEPTH! do 1024 end
 
 macro out-fd!          do tmp-str! sizeof(String)!                       + end
 
-macro block-stack!     do out-fd! 1                                      + end
+macro block-stack!     do out-fd! 8                                      + end
 macro block-stack-len! do block-stack! sizeof(Block)! BLOCK_MAX_DEPTH! * + end
 
 macro block-push()! do
@@ -342,7 +342,19 @@ macro usage()! do
   "[INFO]:   --help,         -h: Prints this help message." println!
 end
 
-macro file-path! do jmp-tracker! 8 + end
+macro file-path! do jmp-tracker! 8             + end
+macro out-path!   do file-path! sizeof(String)! + end
+
+macro get-out-path()! do
+  file-path! String.len! v64 3 -
+  out-path! over + 'S' ^
+  while 0 over < do
+    out-path! over 1 - + # dst
+    over 1 - file-path! String.addr! v64 + v(char)! # src
+    ^
+    1 -
+  end !
+end
 
 macro main! do
   1 while _ argc < do
@@ -378,11 +390,34 @@ macro main! do
   if file-path! String.len! v64 0 == do
     "TODO: write an error for no given file!" eprintln!
     101 sys_exit! syscall3
+  elif file-path! ".clq" String.endswith()! 0 == do
+    "TODO: write an error for file with unknown extension!" eprintln!
+    101 sys_exit! syscall3
   end
 
+  get-out-path()!
+
+  # Open out file for writing
+  AT_FDCWD! # dirmode
+  out-path! # pathname
+
+  O_WRONLY!
+  O_CREAT!  | # flags
+  O_TRUNC!  |
+
+  S_IRUSR!
+  S_IWUSR! | # mode
+  S_IRGRP! | # file perms: rw-r--r--
+  S_IROTH! |
+
+  sys_openat! syscall4
+  out-fd! <-> ^64
+
   file-path! String.addr! v64 open-file()!
-  out-fd! 1 ^
   compile-to-arm64-asm()!
+
+  # Close out file
+  out-fd! v64 sys_exit! syscall1
 end
 
 main!
