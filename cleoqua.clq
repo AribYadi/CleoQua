@@ -10,7 +10,10 @@ macro TT_PLUS!  do TT_INT!   1 + end
 macro TT_MINUS! do TT_PLUS!  1 + end
 macro TT_LT!    do TT_MINUS! 1 + end
 macro TT_DUP!   do TT_LT!    1 + end
-macro TT_PUTD!  do TT_DUP!   1 + end
+macro TT_MEM!   do TT_DUP!   1 + end
+macro TT_READ!  do TT_MEM!   1 + end
+macro TT_WRITE! do TT_READ!  1 + end
+macro TT_PUTD!  do TT_WRITE! 1 + end
 macro TT_IF!    do TT_PUTD!  1 + end
 macro TT_DO!    do TT_IF!    1 + end
 macro TT_WHILE! do TT_DO!    1 + end
@@ -158,6 +161,9 @@ macro next-tok()! do
     elif lexeme! "-" String.streq()! do TT_MINUS!
     elif lexeme! "<" String.streq()! do TT_LT!
     elif lexeme! "_" String.streq()! do TT_DUP!
+    elif lexeme! "mem" String.streq()! do TT_MEM!
+    elif lexeme! "v" String.streq()! do TT_READ!
+    elif lexeme! "^" String.streq()! do TT_WRITE!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
@@ -213,7 +219,13 @@ end
 
 macro jmp-tracker! do block-stack-len! 8 + end
 
+macro MEM_LENGTH! do 480000 end
+
 macro compile-to-arm64-asm()! do
+  ".bss" fd-writeln!
+
+  ".lcomm MEM, " fd-write! MEM_LENGTH! fd-putd! "" fd-writeln!
+
   ".text" fd-writeln!
 
   "putd:"                          fd-writeln!
@@ -264,7 +276,7 @@ macro compile-to-arm64-asm()! do
     if _ TT_COMM! == do
     elif _ TT_INT! == do
       "  // <-- int -->" fd-writeln!
-      "  mov x0, " fd-write! tok! Token.lexeme! v(String)! fd-writeln!
+      "  ldr x0, =" fd-write! tok! Token.lexeme! v(String)! fd-writeln!
       "  sub sp, x28, #8" fd-writeln!
       "  str x0, [x28, #-8]!" fd-writeln!
     elif _ TT_PLUS! == do
@@ -295,6 +307,22 @@ macro compile-to-arm64-asm()! do
       "  sub sp, x28, #16" fd-writeln!
       "  str x0, [x28, #-8]!" fd-writeln!
       "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_MEM! == do
+      "  // <-- mem -->" fd-writeln!
+      "  ldr x0, =MEM" fd-writeln!
+      "  sub sp, x28, #8" fd-writeln!
+      "  str x0, [x28, #-8]!" fd-writeln!
+    elif _ TT_READ! == do
+      "  // <-- read -->" fd-writeln!
+      "  ldr x0, [x28], #8" fd-writeln!
+      "  ldrb w0, [x0]" fd-writeln!
+      "  sub sp, x28, #8" fd-writeln!
+      "  str w0, [x28, #-8]!" fd-writeln!
+    elif _ TT_WRITE! == do
+      "  // <-- write -->" fd-writeln!
+      "  ldr w0, [x28], #8" fd-writeln!
+      "  ldr x1, [x28], #8" fd-writeln!
+      "  strb w0, [x1]" fd-writeln!
     elif _ TT_PUTD! == do
       "  // <-- putd -->" fd-writeln!
       "  ldr x0, [x28], #8" fd-writeln!

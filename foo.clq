@@ -1,5 +1,5 @@
-0 while _ 10 < do
-  _ putd
-  1 +
-end
+mem 3 ^
+1 putd
+2 putd
+mem v putd
 
