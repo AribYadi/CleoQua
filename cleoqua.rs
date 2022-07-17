@@ -513,7 +513,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
     match token.type_ {
       TokenType::Int => {
         let _ = writeln!(s, "  // <-- int -->");
-        let _ = writeln!(s, "  mov x0, {}", token.lexeme);
+        let _ = writeln!(s, "  ldr x0, ={}", token.lexeme);
         let _ = writeln!(s, "  sub sp, x28, #8");
         let _ = writeln!(s, "  str x0, [x28, #-8]!");
       },
@@ -929,7 +929,7 @@ fn compile_to_arm64_asm(tokens: Vec<Token>) -> String {
   s
 }
 
-const DEF_EXPAND_LIM: usize = 1000;
+const DEF_EXPAND_LIM: usize = 5000;
 
 fn usage() {
   println!("[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq");
