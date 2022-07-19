@@ -1,5 +1,6 @@
-mem 3 ^
-1 putd
-2 putd
-mem v putd
+load! "bar.clq"
+456 putd
+load! "bar.clq"
+789 putd
+load! "foo.clq" 256 putd
 

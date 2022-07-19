@@ -1,12 +1,17 @@
 load! "std.clq"
 
+# TODO: check capacity and report err if overflow
+
 macro empty_string! do mem end
 empty_string! "" new(String)! !
+macro sizeof(strbuf)! do 1024 end
+macro strbuf! do empty_string! sizeof(String)! + end
 
 macro TT_EOF!   do 0             end
-macro TT_COMM!  do TT_EOF!   1 + end
-macro TT_INT!   do TT_COMM!  1 + end
-macro TT_PLUS!  do TT_INT!   1 + end
+macro TT_SKIP!  do TT_EOF!   1 + end
+macro TT_INT!   do TT_SKIP!  1 + end
+macro TT_STR!   do TT_INT!   1 + end
+macro TT_PLUS!  do TT_STR!   1 + end
 macro TT_MINUS! do TT_PLUS!  1 + end
 macro TT_LT!    do TT_MINUS! 1 + end
 macro TT_DUP!   do TT_LT!    1 + end
@@ -19,6 +24,7 @@ macro TT_DO!    do TT_IF!    1 + end
 macro TT_WHILE! do TT_DO!    1 + end
 macro TT_ELSE!  do TT_WHILE! 1 + end
 macro TT_END!   do TT_ELSE!  1 + end
+macro TT_LOAD!  do TT_END!   1 + end
 
 # struct Token {
 #   uint8_t type;
@@ -45,7 +51,7 @@ macro fd-write!   do out-fd! v64 2over write!   ! ! ! end
 macro fd-writeln! do out-fd! v64 2over writeln! ! ! ! end
 macro fd-putd!    do out-fd! v64  over fputd        ! end
 
-macro statbuf! do empty_string! sizeof(String)! + end
+macro statbuf! do strbuf!       sizeof(strbuf)! + end
 macro filebuf! do statbuf!      sizeof(stat)!   + end
 
 macro open-file()! do
@@ -98,11 +104,11 @@ macro tmp-str! do tok!          sizeof(Token)!  + end
 
 macro update-lexeme()! do
   # str
-  line! lexeme! ' ' String.until()!
   if line! String.len! v64 0 == do
     if _ String.len! v64 0 == do _ line! String.copy()! !
     else _ line! 10 String.until()! end
   end !
+  line! lexeme! ' ' String.until()!
 end
 
 macro is-int()! do
@@ -138,12 +144,26 @@ macro is-int()! do
   <-> ! 1 ==
 end
 
+macro load-count! do tmp-str! sizeof(String)! + end
+
+macro reload-last-inp()! do
+  # last-str last-len curr-str
+  if load-count! v64 0 == do
+    TT_EOF!
+  else
+    2over new(String)! ! ! !
+    load-count! _ v64 1 - ^64
+    TT_SKIP!
+  end
+end
+
 macro next-tok()! do
   # str
   if
     _ String.len! v64 0 ==
     line! String.len! v64 0 ==
-  & do tok! TT_EOF! empty_string! new(Token)! !
+  & do
+    reload-last-inp()! tok! <-> empty_string! new(Token)! !
   else
     _ update-lexeme()!
 
@@ -155,8 +175,20 @@ macro next-tok()! do
     tok!
     if lexeme! "#" String.startswith()! do
       line! String.len! 0 ^64
-      TT_COMM!
+      TT_SKIP!
     elif lexeme! is-int()! do TT_INT!
+    elif lexeme! "\"" 1 - String.startswith()! do
+      lexeme! String.addr! v64 1 + # addr
+      if lexeme! "\"" 1 - String.endswith()! 0 == do
+        line! lexeme! '"' String.until()!
+      end
+      if lexeme! "\"" 1 - String.endswith()! 0 == do
+        "TODO: write an error for unclosed string!" eprintln!
+        101 sys_exit! syscall1
+      end
+      lexeme! String.addr! v64 over - lexeme! String.len! v64 1 - + # len
+      lexeme! 2over new(String)! ! ! !
+      TT_STR!
     elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "-" String.streq()! do TT_MINUS!
     elif lexeme! "<" String.streq()! do TT_LT!
@@ -170,13 +202,14 @@ macro next-tok()! do
     elif lexeme! "while" String.streq()! do TT_WHILE!
     elif lexeme! "else" String.streq()! do TT_ELSE!
     elif lexeme! "end" String.streq()! do TT_END!
-    elif lexeme! String.len! v64 0 == do TT_EOF!
+    elif lexeme! "load!" String.streq()! do TT_LOAD!
+    elif lexeme! String.len! v64 0 == do TT_SKIP!
     else
       "TODO: write an error for unknown token!" eprintln!
       101 sys_exit! syscall1
     end
-    lexeme! new(Token)! ! !
-  end
+    lexeme! new(Token)! !
+  end ! !
 end
 
 # struct Block {
@@ -189,7 +222,7 @@ macro Block.jmp! do sizeof(Token)! + end
 
 macro BLOCK_MAX_DEPTH! do 1024 end
 
-macro out-fd!          do tmp-str! sizeof(String)!                       + end
+macro out-fd!          do load-count! 8                                  + end
 
 macro block-stack!     do out-fd! 8                                      + end
 macro block-stack-len! do block-stack! sizeof(Block)! BLOCK_MAX_DEPTH! * + end
@@ -219,12 +252,293 @@ end
 
 macro jmp-tracker! do block-stack-len! 8 + end
 
-macro MEM_LENGTH! do 480000 end
+macro MEM_CAP! do 480000 end
+macro STR_CAP! do 4096 end
+
+macro strs-count! do jmp-tracker! 8 + end
+macro strs! do strs-count! 8 + end
+
+macro LOAD_CAP! do 1024 end
+macro loaded-count! do strs! STR_CAP! sizeof(String)! * + end
+macro loaded-files! do loaded-count! 8 + end
+
+macro open-load-file()! do
+  # path
+
+  load-dirs-count! v64
+  # Open load dir
+  AT_FDCWD!                # dirmode
+  "." !                    # pathname
+  O_RDONLY! O_DIRECTORY! | # flags
+  sys_openat! syscall3
+
+  if _ 0 < do
+    "TODO: write an error for not being able to open load dir!" eprintln!
+    101 sys_exit! syscall1
+  end
+
+  # Open file for reading
+  2over !   # dirmode
+  over <->  # pathname
+  O_RDONLY! # flags
+  sys_openat! syscall3
+
+  if _ 0 < do ! !
+    # Open load dir
+    AT_FDCWD!                # dirmode
+    dirname!                 # pathname
+    O_RDONLY! O_DIRECTORY! | # flags
+    sys_openat! syscall3
+
+    if _ 0 < do
+      "TODO: write an error for not being able to open load dir!" eprintln!
+      101 sys_exit! syscall1
+    end
+
+    # Open file for reading
+    2over !   # dirmode
+    over <->  # pathname
+    O_RDONLY! # flags
+    sys_openat! syscall3
+  end
+
+  while
+    _ 0 <
+    2over ! 0 <-> <
+  & do ! !
+    1 -
+
+    # Open load dir
+    load-dirs! over 8 * + v64 nth_arg!
+    AT_FDCWD!                # dirmode
+    <->                      # pathname
+    O_RDONLY! O_DIRECTORY! | # flags
+    sys_openat! syscall3
+
+    # Open file for reading
+    2over !   # dirmode
+    over <->  # pathname
+    O_RDONLY! # flags
+    sys_openat! syscall3
+  end
+
+  if _ 0 < do
+    "TODO: write an error for not being able to open the file!" eprintln!
+    101 sys_exit! syscall1
+  end
+
+  # Get file info
+  if
+    _        # fd
+    statbuf! # buf
+  sys_fstat! syscall2 0 < do
+    "TODO: write an error for not being able to get file information!" eprintln!
+    101 sys_exit! syscall1
+  end
+
+  # Memory map the file's content into `filebuf!`
+  0                          over # addr
+  statbuf! stat.st_size! v64 <->  # lenlthint
+  PROT_READ!                 <->  # prot
+  MAP_PRIVATE!                    # flag
+  <->                             # fd
+  0                               # offset
+  sys_mmap! syscall6
+
+  if _ 0 < do
+    "TODO: write an error for not being able to map file!" eprintln!
+    101 sys_exit! syscall1
+  end
+
+  filebuf! <-> statbuf! stat.st_size! v64 new(String)! !
+
+  # Close file
+  sys_close! syscall1 !
+
+  # Close dir
+  sys_close! syscall1 !
+
+  ! !
+end
+
+macro compile-tok-to-arm64-asm()! do
+  # tt
+  if _ TT_SKIP! == do !
+  elif _ TT_INT! == do !
+    "  // <-- int -->" fd-writeln!
+    "  ldr x0, =" fd-write! tok! Token.lexeme! v(String)! fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_STR! == do !
+    "  // <-- str -->" fd-writeln!
+
+    "  sub sp, x28, #16" fd-writeln!
+    "  ldr x0, =str_" fd-write! strs-count! v64 fd-putd! "" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+    "  mov x0, " fd-write! tok! Token.lexeme! String.len! v64 fd-putd! "" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+
+    tok! Token.lexeme! strs! strs-count! v64 sizeof(String)! * + String.copy()! !
+    strs-count! _ v64 1 + ^64
+  elif _ TT_PLUS! == do !
+    "  // <-- plus -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  add x0, x0, x1" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_MINUS! == do !
+    "  // <-- minus -->" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  sub x0, x0, x1" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_LT! == do !
+    "  // <-- less than -->" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  cmp x0, x1" fd-writeln!
+    "  cset x0, lt" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_DUP! == do !
+    "  // <-- dup -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  sub sp, x28, #16" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_MEM! == do !
+    "  // <-- mem -->" fd-writeln!
+    "  ldr x0, =MEM" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_READ! == do !
+    "  // <-- read -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  ldrb w0, [x0]" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str w0, [x28, #-8]!" fd-writeln!
+  elif _ TT_WRITE! == do !
+    "  // <-- write -->" fd-writeln!
+    "  ldr w0, [x28], #8" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  strb w0, [x1]" fd-writeln!
+  elif _ TT_PUTD! == do !
+    "  // <-- putd -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  mov x20, #1" fd-writeln!
+    "  bl putd" fd-writeln!
+  elif _ TT_IF! == do !
+    "  // <-- if -->" fd-writeln!
+
+    jmp-tracker! _ v64 1 + ^64
+    tok! jmp-tracker! v64 block-push()!
+  elif _ TT_DO! == do !
+    "  // <-- do -->" fd-writeln!
+
+    if block-stack-len! 0 == do !
+      "TODO: write an error for a lone `do`!" eprintln!
+      101 sys_exit! syscall1
+    end
+
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  cmp x0, 1" fd-writeln!
+    "  b.ne jmp_" fd-write! block-last()! Block.jmp! v64 fd-putd! "" fd-writeln!
+  elif _ TT_WHILE! == do !
+    "  // <-- while -->" fd-writeln!
+
+    # We create a new label for `end` to jump to
+    jmp-tracker! _ v64 1 + ^64
+    "jmp_" fd-write! jmp-tracker! v64 fd-putd! ":" fd-writeln!
+    jmp-tracker! _ v64 1 + ^64
+
+    tok! jmp-tracker! v64 block-push()!
+  elif _ TT_ELSE! == do !
+    "  // <-- else -->" fd-writeln!
+
+    if block-stack-len! 0 == do !
+      "TODO: write an error for a lone `else`!" eprintln!
+      101 sys_exit! syscall1
+    end
+    block-pop()!
+
+    _ Block.token! Token.type! v
+    if _ TT_IF! == do !
+      # Jump to end if `else` was reached
+      "  b jmp_" fd-write! jmp-tracker! v64 1 + fd-putd! "" fd-writeln!
+      # Otherwise we jump to this label if `if`'s condition was falsy
+      "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
+    else !
+      "TODO: write an error for an incompatible `else`" eprintln!
+      101 sys_exit! syscall1
+    end
+
+    jmp-tracker! _ v64 1 + ^64
+    tok! jmp-tracker! v64 block-push()!
+  elif _ TT_END! == do !
+    "  // <-- end -->" fd-writeln!
+
+    if block-stack-len! 0 == do !
+      "TODO: write an error for a lone `end`!" eprintln!
+      101 sys_exit! syscall1
+    end
+    block-pop()!
+
+    _ Block.token! Token.type! v
+    # End for ifs and elses doesn't really do anything special
+    if _ TT_IF! == do !
+    elif _ TT_ELSE! == do !
+    elif _ TT_WHILE! == do !
+      "  b jmp_" fd-write! jmp-tracker! v64 1 - fd-putd! "" fd-writeln!
+    else !
+      "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
+      101 sys_exit! syscall1
+    end
+
+    "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
+  elif _ TT_LOAD! == do !
+    filebuf! next-tok()!
+    if tok! Token.type! v TT_STR! != do
+      "TODO: write an error for load value!" eprintln!
+      101 sys_exit! syscall1
+    end
+
+    if sizeof(strbuf)! tok! Token.lexeme! String.len! v64 < do
+      "TODO: write an error for too big load path!" eprintln!
+      101 sys_exit! syscall1
+    end
+
+    if
+      1
+      loaded-count! v64
+      while 0 over < do
+        1 - <->
+        loaded-files! 2over ! sizeof(String)! * +
+        tok! Token.lexeme! v(String)!
+        String.streq()! 0 ==
+        & <->
+      end !
+    do
+      filebuf! v(String)!
+      load-count! _ v64 1 + ^64
+
+      tok! Token.lexeme! strbuf! String.strcpy()!
+      strbuf! open-load-file()!
+
+      tok! Token.lexeme! loaded-files! loaded-count! v64 sizeof(String)! * + String.copy()! !
+      loaded-count! _ v64 1 + ^64
+    end
+  else !
+    "Reached unreachable in `compile-tok-to-arm64-asm()!`" eprintln!
+    101 sys_exit! syscall1
+  end
+end
 
 macro compile-to-arm64-asm()! do
   ".bss" fd-writeln!
 
-  ".lcomm MEM, " fd-write! MEM_LENGTH! fd-putd! "" fd-writeln!
+  ".lcomm MEM, " fd-write! MEM_CAP! fd-putd! "" fd-writeln!
 
   ".text" fd-writeln!
 
@@ -272,152 +586,39 @@ macro compile-to-arm64-asm()! do
 
   filebuf! next-tok()!
   while tok! Token.type! v TT_EOF! != do
-    tok! Token.type! v
-    if _ TT_COMM! == do
-    elif _ TT_INT! == do
-      "  // <-- int -->" fd-writeln!
-      "  ldr x0, =" fd-write! tok! Token.lexeme! v(String)! fd-writeln!
-      "  sub sp, x28, #8" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-    elif _ TT_PLUS! == do
-      "  // <-- plus -->" fd-writeln!
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  ldr x1, [x28], #8" fd-writeln!
-      "  add x0, x0, x1" fd-writeln!
-      "  sub sp, x28, #8" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-    elif _ TT_MINUS! == do
-      "  // <-- minus -->" fd-writeln!
-      "  ldr x1, [x28], #8" fd-writeln!
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  sub x0, x0, x1" fd-writeln!
-      "  sub sp, x28, #8" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-    elif _ TT_LT! == do
-      "  // <-- less than -->" fd-writeln!
-      "  ldr x1, [x28], #8" fd-writeln!
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  cmp x0, x1" fd-writeln!
-      "  cset x0, lt" fd-writeln!
-      "  sub sp, x28, #8" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-    elif _ TT_DUP! == do
-      "  // <-- dup -->" fd-writeln!
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  sub sp, x28, #16" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-    elif _ TT_MEM! == do
-      "  // <-- mem -->" fd-writeln!
-      "  ldr x0, =MEM" fd-writeln!
-      "  sub sp, x28, #8" fd-writeln!
-      "  str x0, [x28, #-8]!" fd-writeln!
-    elif _ TT_READ! == do
-      "  // <-- read -->" fd-writeln!
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  ldrb w0, [x0]" fd-writeln!
-      "  sub sp, x28, #8" fd-writeln!
-      "  str w0, [x28, #-8]!" fd-writeln!
-    elif _ TT_WRITE! == do
-      "  // <-- write -->" fd-writeln!
-      "  ldr w0, [x28], #8" fd-writeln!
-      "  ldr x1, [x28], #8" fd-writeln!
-      "  strb w0, [x1]" fd-writeln!
-    elif _ TT_PUTD! == do
-      "  // <-- putd -->" fd-writeln!
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  mov x20, #1" fd-writeln!
-      "  bl putd" fd-writeln!
-    elif _ TT_IF! == do
-      "  // <-- if -->" fd-writeln!
-
-      jmp-tracker! _ v64 1 + ^64
-      tok! jmp-tracker! v64 block-push()!
-    elif _ TT_DO! == do
-      "  // <-- do -->" fd-writeln!
-
-      if block-stack-len! 0 == do
-        "TODO: write an error for a lone `do`!" eprintln!
-        101 sys_exit! syscall1
-      end
-
-      "  ldr x0, [x28], #8" fd-writeln!
-      "  cmp x0, 1" fd-writeln!
-      "  b.ne jmp_" fd-write! block-last()! Block.jmp! v64 fd-putd! "" fd-writeln!
-    elif _ TT_WHILE! == do
-      "  // <-- while -->" fd-writeln!
-
-      # We create a new label for `end` to jump to
-      jmp-tracker! _ v64 1 + ^64
-      "jmp_" fd-write! jmp-tracker! v64 fd-putd! ":" fd-writeln!
-      jmp-tracker! _ v64 1 + ^64
-
-      tok! jmp-tracker! v64 block-push()!
-    elif _ TT_ELSE! == do
-      "  // <-- else -->" fd-writeln!
-
-      if block-stack-len! 0 == do
-        "TODO: write an error for a lone `else`!" eprintln!
-        101 sys_exit! syscall1
-      end
-      block-pop()!
-
-      _ Block.token! Token.type! v
-      if _ TT_IF! == do !
-        # Jump to end if `else` was reached
-        "  b jmp_" fd-write! jmp-tracker! v64 1 + fd-putd! "" fd-writeln!
-        # Otherwise we jump to this label if `if`'s condition was falsy
-        "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
-      else !
-        "TODO: write an error for an incompatible `else`" eprintln!
-        101 sys_exit! syscall1
-      end
-
-      jmp-tracker! _ v64 1 + ^64
-      tok! jmp-tracker! v64 block-push()!
-    elif _ TT_END! == do
-      "  // <-- end -->" fd-writeln!
-
-      if block-stack-len! 0 == do
-        "TODO: write an error for a lone `end`!" eprintln!
-        101 sys_exit! syscall1
-      end
-      block-pop()!
-
-      _ Block.token! Token.type! v
-      # End for ifs and elses doesn't really do anything special
-      if _ TT_IF! == do !
-      elif _ TT_ELSE! == do !
-      elif _ TT_WHILE! == do !
-        "  b jmp_" fd-write! jmp-tracker! v64 1 - fd-putd! "" fd-writeln!
-      else !
-        "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
-        101 sys_exit! syscall1
-      end
-
-      "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
-    else
-      "Reached unreachable in `compile-to-arm64-asm()!`" eprintln!
-      101 sys_exit! syscall1
-    end !
-
-    filebuf! next-tok()!
+   tok! Token.type! v
+   compile-tok-to-arm64-asm()!
+   filebuf! next-tok()!
   end
 
   "  // <-- exit -->" fd-writeln!
   "  mov x8, 93" fd-writeln!
   "  mov x0, 0" fd-writeln!
   "  svc 0" fd-writeln!
+  "" fd-writeln!
+
+  ".data" fd-writeln!
+  while 0 strs-count! v64 < do
+    strs-count! _ v64 1 - ^64
+    strs! strs-count! v64 sizeof(String)! * +
+    "  str_" fd-write! strs-count! v64 fd-putd! ": .ascii \"" 1 - fd-write! v(String)! fd-write! "\\0\"" 2 - fd-writeln!
+  end
 end
 
 macro usage()! do
   "[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq" println!
   "[INFO]: OPTIONS:" println!
   "[INFO]:   --help,         -h: Prints this help message." println!
+  "[INFO]:   --load-dir,     -L: Adds a directory to load files from." fd-writeln!
 end
 
-macro file-path! do jmp-tracker! 8             + end
-macro out-path!   do file-path! sizeof(String)! + end
+macro LOAD_DIRS_CAP! do 256 end
+macro load-dirs! do loaded-files! LOAD_CAP! sizeof(String)! * + end
+macro load-dirs-count! do load-dirs! LOAD_DIRS_CAP! 8 * + end
+
+macro file-path! do load-dirs-count! 8 + end
+macro dirname! do file-path! sizeof(String)! + end
+macro out-path! do dirname! sizeof(strbuf)! + end
 
 macro get-out-path()! do
   file-path! String.len! v64 3 -
@@ -430,9 +631,30 @@ macro get-out-path()! do
   end !
 end
 
+macro get-dirname()! do
+  # Using `empty_string` since i dont want to introduce `tmp-str2`
+  file-path! empty_string! String.copy()! !
+  while 0 empty_string! String.len! v64 < do
+    empty_string! tmp-str! '/' String.until()!
+  end
+  empty_string! "" new(String)! !
+
+  tmp-str! loaded-files! loaded-count! v64 sizeof(String)! * + String.copy()! !
+  loaded-count! _ v64 1 + ^64
+
+  tmp-str!
+  file-path! String.addr! v64
+  file-path! String.len! v64 # full path len
+  tmp-str! String.len! v64 # file name len
+  - # dirname len
+  new(String)! !
+
+  tmp-str! dirname! String.strcpy()!
+end
+
 macro main! do
   1 while _ argc < do
-    tmp-str! over nth_arg! strlen! new(String)!
+    tmp-str! over nth_arg! strlen()! new(String)! !
 
     if tmp-str! "-" String.startswith()! do
       tmp-str! String.addr! _ v64 1 + ^64
@@ -448,6 +670,13 @@ macro main! do
       | do
         usage()!
         0 sys_exit! syscall1
+      elif
+        tmp-str! "load-dir" String.streq()!
+        tmp-str! "L" String.streq()!
+      | do
+        1 +
+        load-dirs! load-dirs-count! v64 8 * + over ^64
+        load-dirs-count! _ v64 1 + ^64
       else
         "TODO: write an error for unknown option!" eprintln!
         101 sys_exit! syscall1
@@ -469,7 +698,11 @@ macro main! do
     101 sys_exit! syscall1
   end
 
+  file-path! loaded-files! loaded-count! v64 sizeof(String)! * + String.copy()! !
+  loaded-count! _ v64 1 + ^64
+
   get-out-path()!
+  get-dirname()!
 
   # Open out file for writing
   AT_FDCWD! # dirmode
