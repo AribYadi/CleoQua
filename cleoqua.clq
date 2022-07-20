@@ -1,7 +1,5 @@
 load! "std.clq"
 
-# TODO: check capacity and report err if overflow
-
 macro empty_string! do mem end
 empty_string! "" new(String)! !
 macro sizeof(strbuf)! do 1024 end
@@ -229,7 +227,7 @@ macro block-stack-len! do block-stack! sizeof(Block)! BLOCK_MAX_DEPTH! * + end
 
 macro block-push()! do
   # token jmp
-  if BLOCK_MAX_DEPTH! block-stack-len! v64 < do
+  if BLOCK_MAX_DEPTH! block-stack-len! v64 == do
     "TODO: write an error too many nested blocks!" eprintln!
     101 sys_exit! syscall1
   end
@@ -372,6 +370,11 @@ macro compile-tok-to-arm64-asm()! do
   elif _ TT_STR! == do !
     "  // <-- str -->" fd-writeln!
 
+    if STR_CAP! strs-count! v64 == do
+      "TODO: write an error for strs overflow!" eprintln!
+      101 sys_exit! syscall1
+    end
+
     "  sub sp, x28, #16" fd-writeln!
     "  ldr x0, =str_" fd-write! strs-count! v64 fd-putd! "" fd-writeln!
     "  str x0, [x28, #-8]!" fd-writeln!
@@ -498,6 +501,11 @@ macro compile-tok-to-arm64-asm()! do
 
     "jmp_" fd-write! Block.jmp! v64 fd-putd! ":" fd-writeln!
   elif _ TT_LOAD! == do !
+    if LOAD_CAP! loaded-count! v64 == do
+      "TODO: write an error for an load overflow" eprintln!
+      101 sys_exit! syscall1
+    end
+
     filebuf! next-tok()!
     if tok! Token.type! v TT_STR! != do
       "TODO: write an error for load value!" eprintln!
@@ -674,6 +682,11 @@ macro main! do
         tmp-str! "load-dir" String.streq()!
         tmp-str! "L" String.streq()!
       | do
+        if LOAD_DIRS_CAP! load-dirs-count! == do
+          "TODO: write an error for load dir overflow!" eprintln!
+          101 sys_exit! syscall1
+        end
+
         1 +
         load-dirs! load-dirs-count! v64 8 * + over ^64
         load-dirs-count! _ v64 1 + ^64
