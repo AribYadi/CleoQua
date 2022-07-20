@@ -175,7 +175,7 @@ macro String.startswith()! do
     2over ==
   | <-> ! do
     1 # ret
-    while over 0 <-> < do
+    while over 0 <-> < over & do
       ! 1 -
       2over ! String.addr! v64 over + v(char)! # lhs
       2over + v(char)! # rhs
