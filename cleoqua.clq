@@ -185,10 +185,11 @@ macro next-tok()! do
       lexeme! String.addr! v64 1 + # addr
       if lexeme! "\"" 1 - String.endswith()! 0 == do
         line! lexeme! '"' String.until()!
+        lexeme! String.len! _ v64 1 + ^64
       end
       if lexeme! "\"" 1 - String.endswith()! 0 == do
         "TODO: write an error for unclosed string!" eprintln!
-        101 sys_exit! syscall1
+        lexeme! v(String)! println!
       end
       lexeme! String.addr! v64 over - lexeme! String.len! v64 1 - + # len
       lexeme! 2over new(String)! ! ! !
@@ -210,7 +211,7 @@ macro next-tok()! do
       & do
         lexeme! String.addr! v64 7 + v(char)!
         '0' 1 - over <
-        <-> '1' 1 + < &
+        <-> '6' 1 + < &
       else 0 end
     do TT_SYSCALL!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
@@ -488,9 +489,9 @@ macro compile-tok-to-arm64-asm()! do
     lexeme! String.addr! v64 7 + v(char)! '0' - # syscall argc
 
     "  ldr x8, [x28], #8" fd-writeln!
-    0 while over over != do
+    while _ 0 != do
+      1 -
       "  ldr x" fd-write! _ fd-putd! ", [x28], #8" fd-writeln!
-      1 +
     end ! !
 
     "  svc 0" fd-writeln!
