@@ -320,7 +320,7 @@ macro open-load-file()! do
   O_RDONLY! # flags
   sys_openat! syscall3
 
-  if _ 0 < do ! !
+  if _ 0 < dirname! strlen()! <-> ! 0 != & do ! !
     # Open load dir
     AT_FDCWD!                # dirmode
     dirname!                 # pathname
@@ -340,8 +340,8 @@ macro open-load-file()! do
   end
 
   while
-    _ 0 <
     2over ! 0 <-> <
+    over 0 <
   & do ! !
     1 -
 
@@ -351,6 +351,11 @@ macro open-load-file()! do
     <->                      # pathname
     O_RDONLY! O_DIRECTORY! | # flags
     sys_openat! syscall3
+
+    if _ 0 < do
+      "TODO: write an error for not being able to open load dir!" eprintln!
+      101 sys_exit! syscall1
+    end
 
     # Open file for reading
     2over !   # dirmode
@@ -375,7 +380,7 @@ macro open-load-file()! do
 
   # Memory map the file's content into `filebuf!`
   0                          over # addr
-  statbuf! stat.st_size! v64 <->  # lenlthint
+  statbuf! stat.st_size! v64 <->  # lengthint
   PROT_READ!                 <->  # prot
   MAP_PRIVATE!                    # flag
   <->                             # fd
@@ -655,7 +660,6 @@ macro compile-tok-to-arm64-asm()! do
       strbuf! open-load-file()!
 
       tok! Token.lexeme! loaded-files! loaded-count! v64 sizeof(String)! * + String.copy()! !
-      line! String.len! 0 ^64
       loaded-count! _ v64 1 + ^64
     end
   else !
