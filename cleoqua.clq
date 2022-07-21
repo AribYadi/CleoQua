@@ -5,26 +5,28 @@ empty_string! "" new(String)! !
 macro sizeof(strbuf)! do 1024 end
 macro strbuf! do empty_string! sizeof(String)! + end
 
-macro TT_EOF!   do 0             end
-macro TT_SKIP!  do TT_EOF!   1 + end
-macro TT_INT!   do TT_SKIP!  1 + end
-macro TT_STR!   do TT_INT!   1 + end
-macro TT_PLUS!  do TT_STR!   1 + end
-macro TT_MINUS! do TT_PLUS!  1 + end
-macro TT_LT!    do TT_MINUS! 1 + end
-macro TT_DUP!   do TT_LT!    1 + end
-macro TT_MEM!   do TT_DUP!   1 + end
-macro TT_READ!  do TT_MEM!   1 + end
-macro TT_WRITE! do TT_READ!  1 + end
-macro TT_PUTD!  do TT_WRITE! 1 + end
-macro TT_IF!    do TT_PUTD!  1 + end
-macro TT_DO!    do TT_IF!    1 + end
-macro TT_WHILE! do TT_DO!    1 + end
-macro TT_ELSE!  do TT_WHILE! 1 + end
-macro TT_END!   do TT_ELSE!  1 + end
-macro TT_MACRO! do TT_END!   1 + end
-macro TT_MACNM! do TT_MACRO! 1 + end
-macro TT_LOAD!  do TT_MACNM! 1 + end
+macro TT_EOF!     do 0               end
+macro TT_SKIP!    do TT_EOF!     1 + end
+macro TT_INT!     do TT_SKIP!    1 + end
+macro TT_STR!     do TT_INT!     1 + end
+macro TT_PLUS!    do TT_STR!     1 + end
+macro TT_MINUS!   do TT_PLUS!    1 + end
+macro TT_LT!      do TT_MINUS!   1 + end
+macro TT_DUP!     do TT_LT!      1 + end
+macro TT_MEM!     do TT_DUP!     1 + end
+macro TT_READ!    do TT_MEM!     1 + end
+macro TT_WRITE!   do TT_READ!    1 + end
+macro TT_READ64!  do TT_WRITE!   1 + end
+macro TT_WRITE64! do TT_READ64!  1 + end
+macro TT_PUTD!    do TT_WRITE64! 1 + end
+macro TT_IF!      do TT_PUTD!    1 + end
+macro TT_DO!      do TT_IF!      1 + end
+macro TT_WHILE!   do TT_DO!      1 + end
+macro TT_ELSE!    do TT_WHILE!   1 + end
+macro TT_END!     do TT_ELSE!    1 + end
+macro TT_MACRO!   do TT_END!     1 + end
+macro TT_MACRONM! do TT_MACRO!   1 + end
+macro TT_LOAD!    do TT_MACRONM! 1 + end
 
 # struct Token {
 #   uint8_t type;
@@ -196,6 +198,8 @@ macro next-tok()! do
     elif lexeme! "mem" String.streq()! do TT_MEM!
     elif lexeme! "v" String.streq()! do TT_READ!
     elif lexeme! "^" String.streq()! do TT_WRITE!
+    elif lexeme! "v64" String.streq()! do TT_READ64!
+    elif lexeme! "^64" String.streq()! do TT_WRITE64!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
@@ -204,10 +208,10 @@ macro next-tok()! do
     elif lexeme! "end" String.streq()! do TT_END!
     elif lexeme! "macro" String.streq()! do TT_MACRO!
     elif lexeme! "load!" String.streq()! do TT_LOAD!
-    elif lexeme! "!" String.endswith()! do TT_MACNM!
+    elif lexeme! "!" String.endswith()! do TT_MACRONM!
     elif lexeme! String.len! v64 0 == do TT_SKIP!
     else
-      "TODO: write an error for unknown token!" eprintln!
+      "TODO: write an error for unknown token! `" eprint! lexeme! v(String)! eprint! "`" eprintln!
       101 sys_exit! syscall1
     end
     lexeme! new(Token)! ! !
@@ -448,6 +452,17 @@ macro compile-tok-to-arm64-asm()! do
     "  ldr w0, [x28], #8" fd-writeln!
     "  ldr x1, [x28], #8" fd-writeln!
     "  strb w0, [x1]" fd-writeln!
+  elif _ TT_READ64! == do !
+    "  // <-- read64 -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  ldr x0, [x0]" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_WRITE64! == do !
+    "  // <-- write64 -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  str x0, [x1]" fd-writeln!
   elif _ TT_PUTD! == do !
     "  // <-- putd -->" fd-writeln!
     "  ldr x0, [x28], #8" fd-writeln!
@@ -532,7 +547,7 @@ macro compile-tok-to-arm64-asm()! do
     tok! <-> Token.copy()!
 
     filebuf! next-tok()!
-    if tok! Token.type! v TT_MACNM! != do
+    if tok! Token.type! v TT_MACRONM! != do
       "TODO: write an error for macro name!" eprintln!
       101 sys_exit! syscall1
     end
@@ -559,7 +574,7 @@ macro compile-tok-to-arm64-asm()! do
     tok! Token.lexeme! String.addr! v64 over - # len
     new(String)! !
     macros-count! _ v64 1 + ^64
-  elif _ TT_MACNM! == do !
+  elif _ TT_MACRONM! == do !
     filebuf! v(String)! <-> ! line! String.addr! v64 <-> line! String.len! v64 +
     line! String.len! 0 ^64
     load-count! _ v64 1 + ^64
