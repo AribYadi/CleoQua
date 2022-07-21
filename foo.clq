@@ -1,14 +1,2 @@
-macro foo! do
-  if 123 < do
-    123
-  else
-    456
-  end
-end
-
-macro bar! do
-  foo! _ putd
-end
-
-10 bar! foo! putd
+1 93 syscall1
 

@@ -19,7 +19,8 @@ macro TT_READ!    do TT_MEM!     1 + end
 macro TT_WRITE!   do TT_READ!    1 + end
 macro TT_READ64!  do TT_WRITE!   1 + end
 macro TT_WRITE64! do TT_READ64!  1 + end
-macro TT_PUTD!    do TT_WRITE64! 1 + end
+macro TT_SYSCALL! do TT_WRITE64! 1 + end
+macro TT_PUTD!    do TT_SYSCALL! 1 + end
 macro TT_IF!      do TT_PUTD!    1 + end
 macro TT_DO!      do TT_IF!      1 + end
 macro TT_WHILE!   do TT_DO!      1 + end
@@ -202,6 +203,16 @@ macro next-tok()! do
     elif lexeme! "^" String.streq()! do TT_WRITE!
     elif lexeme! "v64" String.streq()! do TT_READ64!
     elif lexeme! "^64" String.streq()! do TT_WRITE64!
+    elif
+      if
+        lexeme! "syscall" String.startswith()!
+        lexeme! String.len! v64 8 ==
+      & do
+        lexeme! String.addr! v64 7 + v(char)!
+        '0' 1 - over <
+        <-> '1' 1 + < &
+      else 0 end
+    do TT_SYSCALL!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
@@ -471,6 +482,20 @@ macro compile-tok-to-arm64-asm()! do
     "  ldr x0, [x28], #8" fd-writeln!
     "  ldr x1, [x28], #8" fd-writeln!
     "  str x0, [x1]" fd-writeln!
+  elif _ TT_SYSCALL! == do !
+    "  // <-- syscall -->" fd-writeln!
+
+    lexeme! String.addr! v64 7 + v(char)! '0' - # syscall argc
+
+    "  ldr x8, [x28], #8" fd-writeln!
+    0 while over over != do
+      "  ldr x" fd-write! _ fd-putd! ", [x28], #8" fd-writeln!
+      1 +
+    end ! !
+
+    "  svc 0" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
   elif _ TT_PUTD! == do !
     "  // <-- putd -->" fd-writeln!
     "  ldr x0, [x28], #8" fd-writeln!
