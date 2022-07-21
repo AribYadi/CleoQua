@@ -1,5 +1,14 @@
-mem 3 ^
-1 putd
-2 putd
-mem v putd
+macro foo! do
+  if 123 < do
+    123
+  else
+    456
+  end
+end
+
+macro bar! do
+  foo! _ putd
+end
+
+10 bar! foo! putd
 
