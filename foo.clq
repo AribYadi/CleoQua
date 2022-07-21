@@ -1,6 +1,14 @@
-load! "bar.clq"
-456 putd
-load! "bar.clq"
-789 putd
-load! "foo.clq" 256 putd
+macro foo! do
+  if 123 < do
+    123
+  else
+    456
+  end
+end
+
+macro bar! do
+  foo! _ putd
+end
+
+10 bar! foo! putd
 
