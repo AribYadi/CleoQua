@@ -666,9 +666,9 @@ macro compile-to-arm64-asm()! do
 
   filebuf! next-tok()!
   while tok! Token.type! v TT_EOF! != do
-   tok! Token.type! v
-   compile-tok-to-arm64-asm()!
-   filebuf! next-tok()!
+    tok! Token.type! v
+    compile-tok-to-arm64-asm()!
+    filebuf! next-tok()!
   end
 
   "  // <-- exit -->" fd-writeln!
