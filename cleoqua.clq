@@ -118,6 +118,9 @@ macro update-lexeme()! do
     if _ String.len! v64 0 == do _ line! String.copy()! !
     else _ line! 10 String.until()! end
   end !
+  while line! String.addr! v64 v(char)! 9 == do
+    line! lexeme! 9 String.until()!
+  end
   line! lexeme! ' ' String.until()!
 end
 
