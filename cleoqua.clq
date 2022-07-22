@@ -11,7 +11,8 @@ macro TT_INT!     do TT_SKIP!    1 + end
 macro TT_STR!     do TT_INT!     1 + end
 macro TT_PLUS!    do TT_STR!     1 + end
 macro TT_MINUS!   do TT_PLUS!    1 + end
-macro TT_LT!      do TT_MINUS!   1 + end
+macro TT_STAR!    do TT_MINUS!   1 + end
+macro TT_LT!      do TT_STAR!    1 + end
 macro TT_EQEQ!    do TT_LT!      1 + end
 macro TT_BANGEQ!  do TT_EQEQ!    1 + end
 macro TT_DUP!     do TT_BANGEQ!  1 + end
@@ -205,6 +206,7 @@ macro next-tok()! do
       TT_STR!
     elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "-" String.streq()! do TT_MINUS!
+    elif lexeme! "*" String.streq()! do TT_STAR!
     elif lexeme! "<" String.streq()! do TT_LT!
     elif lexeme! "==" String.streq()! do TT_EQEQ!
     elif lexeme! "!=" String.streq()! do TT_BANGEQ!
@@ -454,6 +456,13 @@ macro compile-tok-to-arm64-asm()! do
     "  ldr x1, [x28], #8" fd-writeln!
     "  ldr x0, [x28], #8" fd-writeln!
     "  sub x0, x0, x1" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_STAR! == do !
+    "  // <-- star -->" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  mul x0, x0, x1" fd-writeln!
     "  sub sp, x28, #8" fd-writeln!
     "  str x0, [x28, #-8]!" fd-writeln!
   elif _ TT_LT! == do !
