@@ -27,7 +27,9 @@ macro TT_WRITE!   do TT_READ!    1 + end
 macro TT_READ64!  do TT_WRITE!   1 + end
 macro TT_WRITE64! do TT_READ64!  1 + end
 macro TT_SYSCALL! do TT_WRITE64! 1 + end
-macro TT_PUTD!    do TT_SYSCALL! 1 + end
+macro TT_ARGV!    do TT_SYSCALL! 1 + end
+macro TT_ARGC!    do TT_ARGV!    1 + end
+macro TT_PUTD!    do TT_ARGC!    1 + end
 macro TT_IF!      do TT_PUTD!    1 + end
 macro TT_DO!      do TT_IF!      1 + end
 macro TT_WHILE!   do TT_DO!      1 + end
@@ -231,6 +233,8 @@ macro next-tok()! do
         <-> '6' 1 + < &
       else 0 end
     do TT_SYSCALL!
+    elif lexeme! "argv" String.streq()! do TT_ARGV!
+    elif lexeme! "argc" String.streq()! do TT_ARGC!
     elif lexeme! "putd" String.streq()! do TT_PUTD!
     elif lexeme! "if" String.streq()! do TT_IF!
     elif lexeme! "do" String.streq()! do TT_DO!
@@ -575,6 +579,20 @@ macro compile-tok-to-arm64-asm()! do
     "  svc 0" fd-writeln!
     "  sub sp, x28, #8" fd-writeln!
     "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_ARGV! == do !
+    "  // <-- argc -->" fd-writeln!
+    "  ldr x0, =ARG_PTR" fd-writeln!
+    "  ldr x0, [x0]" fd-writeln!
+    "  add x0, x0, #8" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_ARGC! == do !
+    "  // <-- argc -->" fd-writeln!
+    "  ldr x0, =ARG_PTR" fd-writeln!
+    "  ldr x0, [x0]" fd-writeln!
+    "  ldr x0, [x0]" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
   elif _ TT_PUTD! == do !
     "  // <-- putd -->" fd-writeln!
     "  ldr x0, [x28], #8" fd-writeln!
@@ -745,6 +763,7 @@ macro compile-to-arm64-asm()! do
   ".bss" fd-writeln!
 
   ".lcomm MEM, " fd-write! MEM_CAP! fd-putd! "" fd-writeln!
+  ".lcomm ARG_PTR, 8" fd-writeln!
 
   ".text" fd-writeln!
 
@@ -789,6 +808,8 @@ macro compile-to-arm64-asm()! do
   ".global _start" fd-writeln!
   "_start:" fd-writeln!
   "  mov x28, sp" fd-writeln!
+  "  ldr x0, =ARG_PTR" fd-writeln!
+  "  str x28, [x0]" fd-writeln!
 
   filebuf! next-tok()!
   while tok! Token.type! v TT_EOF! != do
