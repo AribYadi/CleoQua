@@ -672,7 +672,7 @@ macro compile-tok-to-arm64-asm()! do
   elif _ TT_END! == do !
     "  // <-- end -->" fd-writeln!
 
-    if block-stack-len! 0 == do !
+    if block-stack-len! v64 0 == do !
       "TODO: write an error for a lone `end`!" eprintln!
       101 sys_exit! syscall1
     end
@@ -683,7 +683,7 @@ macro compile-tok-to-arm64-asm()! do
     if _ TT_IF! == do !
     elif _ TT_ELSE! == do !
     elif _ TT_WHILE! == do !
-      "  b jmp_" fd-write! jmp-tracker! v64 1 - fd-putd! "" fd-writeln!
+      "  b jmp_" fd-write! _ Block.jmp! v64 1 - fd-putd! "" fd-writeln!
     else !
       _ Block.token! Token.type! putd
       "Reached unreachable in `compile-to-arm64-asm()!` `end`" eprintln!
