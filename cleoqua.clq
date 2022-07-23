@@ -8,7 +8,8 @@ macro strbuf! do empty_string! sizeof(String)! + end
 macro TT_EOF!     do 0               end
 macro TT_SKIP!    do TT_EOF!     1 + end
 macro TT_INT!     do TT_SKIP!    1 + end
-macro TT_STR!     do TT_INT!     1 + end
+macro TT_CHAR!    do TT_INT!     1 + end
+macro TT_STR!     do TT_CHAR!    1 + end
 macro TT_PLUS!    do TT_STR!     1 + end
 macro TT_MINUS!   do TT_PLUS!    1 + end
 macro TT_STAR!    do TT_MINUS!   1 + end
@@ -66,8 +67,8 @@ macro fd-write!   do out-fd! v64 2over write!   ! ! ! end
 macro fd-writeln! do out-fd! v64 2over writeln! ! ! ! end
 macro fd-putd!    do out-fd! v64  over fputd        ! end
 
-macro statbuf! do strbuf!       sizeof(strbuf)! + end
-macro filebuf! do statbuf!      sizeof(stat)!   + end
+macro statbuf! do strbuf!  sizeof(strbuf)! + end
+macro filebuf! do statbuf! sizeof(stat)!   + end
 
 macro open-file()! do
   # path
@@ -112,10 +113,10 @@ macro open-file()! do
   sys_close! syscall1 !
 end
 
-macro line!    do filebuf!      sizeof(String)! + end
-macro lexeme!  do line!         sizeof(String)! + end
-macro tok!     do lexeme!       sizeof(String)! + end
-macro tmp-str! do tok!          sizeof(Token)!  + end
+macro line!    do filebuf! sizeof(String)! + end
+macro lexeme!  do line!    sizeof(String)! + end
+macro tok!     do lexeme!  sizeof(String)! + end
+macro tmp-str! do tok!     sizeof(Token)!  + end
 
 macro update-lexeme()! do
   # str
@@ -201,6 +202,26 @@ macro next-tok()! do
       line! String.len! 0 ^64
       TT_SKIP!
     elif lexeme! is-int()! do TT_INT!
+    elif lexeme! "'" String.startswith()! do
+      lexeme! String.addr! v64 1 + # addr
+      if lexeme! "'" String.streq()! do
+        line! lexeme! 39 String.until()!
+        lexeme! String.len! _ v64 1 + ^64
+      end
+      if lexeme! "'" String.endswith()! 0 == do
+        "TODO: write an error for unclosed char!" eprintln!
+        1 sys_exit! syscall1
+      end
+      lexeme! String.addr! v64 over - lexeme! String.len! v64 1 - + # len
+      if _ 0 == do
+        "TODO: write an error for empty char!" eprintln!
+        1 sys_exit! syscall1
+      elif _ 1 != do
+        "TODO: write an error for bad char!" eprintln!
+        1 sys_exit! syscall1
+      end
+      lexeme! 2over new(String)! ! ! !
+      TT_CHAR!
     elif lexeme! "\"" 1 - String.startswith()! do
       lexeme! String.addr! v64 1 + # addr
       if lexeme! "\"" 1 - String.endswith()! 0 == do
@@ -209,7 +230,7 @@ macro next-tok()! do
       end
       if lexeme! "\"" 1 - String.endswith()! 0 == do
         "TODO: write an error for unclosed string!" eprintln!
-        lexeme! v(String)! println!
+        1 sys_exit! syscall1
       end
       lexeme! String.addr! v64 over - lexeme! String.len! v64 1 - + # len
       lexeme! 2over new(String)! ! ! !
@@ -443,6 +464,11 @@ macro compile-tok-to-arm64-asm()! do
   elif _ TT_INT! == do !
     "  // <-- int -->" fd-writeln!
     "  ldr x0, =" fd-write! tok! Token.lexeme! v(String)! fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_CHAR! == do !
+    "  // <-- char -->" fd-writeln!
+    "  mov x0, " fd-write! tok! Token.lexeme! String.addr! v64 v(char)! fd-putd! "" fd-writeln!
     "  sub sp, x28, #8" fd-writeln!
     "  str x0, [x28, #-8]!" fd-writeln!
   elif _ TT_STR! == do !
