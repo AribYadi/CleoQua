@@ -210,7 +210,7 @@ macro String.endswith()! do
   end
 end
 
-macro streq! do
+macro streq()! do
   # lhs rhs
   1 # eq
   while
@@ -231,6 +231,9 @@ macro strlen()! do
 	end
 	over -
 end
+
+macro streq! do streq()! end
+macro strlen! do strlen()! end
 
 macro nth_arg! do
   # n
