@@ -21,7 +21,8 @@ macro TT_BITOR!   do TT_DUP!     1 + end
 macro TT_BITAND!  do TT_BITOR!   1 + end
 macro TT_OVER!    do TT_BITAND!  1 + end
 macro TT_2OVER!   do TT_OVER!    1 + end
-macro TT_SWAP!    do TT_2OVER!   1 + end
+macro TT_DROP!    do TT_2OVER!   1 + end
+macro TT_SWAP!    do TT_DROP!    1 + end
 macro TT_MEM!     do TT_SWAP!    1 + end
 macro TT_READ!    do TT_MEM!     1 + end
 macro TT_WRITE!   do TT_READ!    1 + end
@@ -227,6 +228,7 @@ macro next-tok()! do
     elif lexeme! "_" String.streq()! do TT_DUP!
     elif lexeme! "over" String.streq()! do TT_OVER!
     elif lexeme! "2over" String.streq()! do TT_2OVER!
+    elif lexeme! "!" String.streq()! do TT_DROP!
     elif lexeme! "<->" String.streq()! do TT_SWAP!
     elif lexeme! "mem" String.streq()! do TT_MEM!
     elif lexeme! "v" String.streq()! do TT_READ!
@@ -550,6 +552,9 @@ macro compile-tok-to-arm64-asm()! do
     "  str x0, [x28, #-8]!" fd-writeln!
     "  str x2, [x28, #-8]!" fd-writeln!
     "  str x1, [x28, #-8]!" fd-writeln!
+  elif _ TT_DROP! == do !
+    "  // <-- drop -->" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
   elif _ TT_SWAP! == do !
     "  // <-- swap -->" fd-writeln!
     "  ldr x0, [x28], #8" fd-writeln!
