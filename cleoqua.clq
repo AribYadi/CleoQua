@@ -17,10 +17,12 @@ macro TT_LT!      do TT_STAR!    1 + end
 macro TT_MOD!     do TT_LT!      1 + end
 macro TT_EQEQ!    do TT_MOD!     1 + end
 macro TT_BANGEQ!  do TT_EQEQ!    1 + end
-macro TT_DUP!     do TT_BANGEQ!  1 + end
-macro TT_BITOR!   do TT_DUP!     1 + end
+macro TT_SHL!     do TT_BANGEQ!  1 + end
+macro TT_SHR!     do TT_SHL!     1 + end
+macro TT_BITOR!   do TT_SHR!     1 + end
 macro TT_BITAND!  do TT_BITOR!   1 + end
-macro TT_OVER!    do TT_BITAND!  1 + end
+macro TT_DUP!     do TT_BITAND!  1 + end
+macro TT_OVER!    do TT_BANGEQ!  1 + end
 macro TT_2OVER!   do TT_OVER!    1 + end
 macro TT_DROP!    do TT_2OVER!   1 + end
 macro TT_SWAP!    do TT_DROP!    1 + end
@@ -245,6 +247,8 @@ macro next-tok()! do
     elif lexeme! "%" String.streq()! do TT_MOD!
     elif lexeme! "==" String.streq()! do TT_EQEQ!
     elif lexeme! "!=" String.streq()! do TT_BANGEQ!
+    elif lexeme! "<<" String.streq()! do TT_SHL!
+    elif lexeme! ">>" String.streq()! do TT_SHR!
     elif lexeme! "|" String.streq()! do TT_BITOR!
     elif lexeme! "&" String.streq()! do TT_BITAND!
     elif lexeme! "_" String.streq()! do TT_DUP!
@@ -538,6 +542,20 @@ macro compile-tok-to-arm64-asm()! do
     "  ldr x0, [x28], #8" fd-writeln!
     "  cmp x0, x1" fd-writeln!
     "  cset x0, ne" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+    "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_SHL! == do !
+    "  // <-- shift left -->" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  lsl x0, x0, x1" fd-writeln!
+    "  sub sp, x28, #8" fd-writeln!
+  elif _ TT_SHR! == do !
+    "  str x0, [x28, #-8]!" fd-writeln!
+    "  // <-- shift right -->" fd-writeln!
+    "  ldr x1, [x28], #8" fd-writeln!
+    "  ldr x0, [x28], #8" fd-writeln!
+    "  lsr x0, x0, x1" fd-writeln!
     "  sub sp, x28, #8" fd-writeln!
     "  str x0, [x28, #-8]!" fd-writeln!
   elif _ TT_BITOR! == do !
