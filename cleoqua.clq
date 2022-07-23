@@ -180,7 +180,7 @@ macro next-tok()! do
     _ String.len! v64 0 ==
     line! String.len! v64 0 ==
   & do
-    reload-last-inp()! tok! <-> empty_string! new(Token)! !
+    reload-last-inp()! tok! <-> empty_string! new(Token)! ! !
   else
     _ update-lexeme()!
 
@@ -251,8 +251,8 @@ macro next-tok()! do
       "TODO: write an error for unknown token! `" eprint! lexeme! v(String)! eprint! "`" eprintln!
       101 sys_exit! syscall1
     end
-    lexeme! new(Token)! ! !
-  end !
+    lexeme! new(Token)! ! ! !
+  end
 end
 
 # struct Block {
@@ -584,7 +584,7 @@ macro compile-tok-to-arm64-asm()! do
     while _ 0 != do
       1 -
       "  ldr x" fd-write! _ fd-putd! ", [x28], #8" fd-writeln!
-    end ! !
+    end !
 
     "  svc 0" fd-writeln!
     "  sub sp, x28, #8" fd-writeln!
@@ -754,7 +754,8 @@ macro compile-tok-to-arm64-asm()! do
         & <->
       end !
     do
-      filebuf! v(String)!
+      filebuf! v(String)! <-> ! line! String.addr! v64 <-> line! String.len! v64 +
+      line! String.len! 0 ^64
       load-count! _ v64 1 + ^64
 
       tok! Token.lexeme! strbuf! String.strcpy()!
