@@ -135,8 +135,9 @@ macro update-lexeme2()! do
 
   while
     _ String.len! v64 0 !=
-    lexeme! String.len! v64 0 ==
-  & do _ update-lexeme()! end !
+    line! String.len! v64 0 != |
+    lexeme! String.len! v64 0 == &
+  do _ update-lexeme()! end !
 end
 
 macro is-int()! do
