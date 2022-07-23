@@ -206,6 +206,9 @@ macro next-tok()! do
       end
       lexeme! String.addr! v64 over - lexeme! String.len! v64 1 - + # len
       lexeme! 2over new(String)! ! ! !
+      if over String.len! v64 0 == do
+        line! String.len! _ v64 1 + ^64
+      end
       TT_STR!
     elif lexeme! "+" String.streq()! do TT_PLUS!
     elif lexeme! "-" String.streq()! do TT_MINUS!
