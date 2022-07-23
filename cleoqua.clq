@@ -128,6 +128,16 @@ macro update-lexeme()! do
   line! lexeme! ' ' String.until()!
 end
 
+macro update-lexeme2()! do
+  # str
+  _ update-lexeme()!
+
+  while
+    _ String.len! v64 0 !=
+    lexeme! String.len! v64 0 ==
+  & do _ update-lexeme()! end !
+end
+
 macro is-int()! do
   # str
   tmp-str! String.copy()!
@@ -182,12 +192,7 @@ macro next-tok()! do
   & do
     reload-last-inp()! tok! <-> empty_string! new(Token)! ! !
   else
-    _ update-lexeme()!
-
-    while
-      _ String.len! v64 0 !=
-      lexeme! String.len! v64 0 ==
-    & do _ update-lexeme()! end
+    _ update-lexeme2()!
 
     tok!
     if lexeme! "#" String.startswith()! do
@@ -727,8 +732,8 @@ macro compile-tok-to-arm64-asm()! do
     String.copy()! !
 
     # Skips the macro name and `do` toks
-    filebuf! next-tok()!
-    filebuf! next-tok()!
+    filebuf! update-lexeme2()!
+    filebuf! update-lexeme2()!
   elif _ TT_LOAD! == do !
     if LOAD_CAP! loaded-count! v64 == do
       "TODO: write an error for load overflow" eprintln!
@@ -829,6 +834,7 @@ macro compile-to-arm64-asm()! do
   while tok! Token.type! v TT_EOF! != do
     tok! Token.type! v
     compile-tok-to-arm64-asm()!
+    tok! Token.lexeme! v(String)! println!
     filebuf! next-tok()!
   end
 
