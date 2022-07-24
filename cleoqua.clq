@@ -22,7 +22,7 @@ macro TT_SHR!     do TT_SHL!     1 + end
 macro TT_BITOR!   do TT_SHR!     1 + end
 macro TT_BITAND!  do TT_BITOR!   1 + end
 macro TT_DUP!     do TT_BITAND!  1 + end
-macro TT_OVER!    do TT_BANGEQ!  1 + end
+macro TT_OVER!    do TT_DUP!     1 + end
 macro TT_2OVER!   do TT_OVER!    1 + end
 macro TT_DROP!    do TT_2OVER!   1 + end
 macro TT_SWAP!    do TT_DROP!    1 + end
@@ -553,8 +553,8 @@ macro compile-tok-to-arm64-asm()! do
     "  ldr x0, [x28], #8" fd-writeln!
     "  lsl x0, x0, x1" fd-writeln!
     "  sub sp, x28, #8" fd-writeln!
-  elif _ TT_SHR! == do !
     "  str x0, [x28, #-8]!" fd-writeln!
+  elif _ TT_SHR! == do !
     "  // <-- shift right -->" fd-writeln!
     "  ldr x1, [x28], #8" fd-writeln!
     "  ldr x0, [x28], #8" fd-writeln!
