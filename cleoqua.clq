@@ -123,8 +123,7 @@ macro tmp-str! do tok!     sizeof(Token)!  + end
 macro update-lexeme()! do
   # str
   if line! String.len! v64 0 == do
-    if _ String.len! v64 0 == do _ line! String.copy()! !
-    else _ line! 10 String.until()! end
+    _ line! 10 String.until()!
   end !
   while line! String.addr! v64 v(char)! 9 == do
     line! lexeme! 9 String.until()!
@@ -183,8 +182,12 @@ macro reload-last-inp()! do
   if load-count! v64 0 == do
     ! TT_EOF!
   else
-    2over new(String)! ! ! !
     load-count! _ v64 1 - ^64
+    2over new(String)!
+    if load-count! v64 0 == do
+      _ String.len! _ v64 1 + ^64
+    end
+    ! ! !
     TT_SKIP!
   end
 end
@@ -905,7 +908,7 @@ macro usage()! do
   "[INFO]: Usage: cleoqua [OPTIONS] <file-path>.clq" println!
   "[INFO]: OPTIONS:" println!
   "[INFO]:   --help,         -h: Prints this help message." println!
-  "[INFO]:   --load-dir,     -L: Adds a directory to load files from." fd-writeln!
+  "[INFO]:   --load-dir,     -L: Adds a directory to load files from." writeln!
 end
 
 macro LOAD_DIRS_CAP! do 256 end
